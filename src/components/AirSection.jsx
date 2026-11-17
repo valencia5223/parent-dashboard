@@ -1,6 +1,5 @@
-import { Loading, ErrorBox } from './Card.jsx';
-
-// 날씨 카드 아래쪽에 붙는 미세먼지 구역 (값은 WeatherCard 가 받아 넘김)
+// 날씨 카드 안의 미세먼지: 온도 오른쪽 작은 표시(AirMini) + 나쁠 때만 안내(airTips)
+// 값은 WeatherCard 가 받아 넘긴다.
 
 // 환경부 예보 등급 기준 (㎍/㎥)
 const GRADES = {
@@ -8,63 +7,53 @@ const GRADES = {
   pm2_5: [15, 35, 75],
 };
 const LEVELS = [
-  { key: 'good', label: '좋음', emoji: '😊', tip: '바깥 활동하기 좋아요' },
-  { key: 'normal', label: '보통', emoji: '🙂', tip: '평소처럼 지내셔도 돼요' },
-  { key: 'bad', label: '나쁨', emoji: '😷', tip: '외출할 때 마스크를 쓰세요' },
-  { key: 'worst', label: '매우 나쁨', emoji: '🚫', tip: '되도록 밖에 나가지 마세요' },
+  { key: 'good', label: '좋음', emoji: '😊' },
+  { key: 'normal', label: '보통', emoji: '🙂' },
+  { key: 'bad', label: '나쁨', emoji: '😷', tip: '미세먼지가 나빠요. 외출할 때 마스크를 쓰세요' },
+  { key: 'worst', label: '매우 나쁨', emoji: '🚫', tip: '미세먼지가 매우 나빠요. 되도록 밖에 나가지 마세요' },
 ];
 function level(kind, v) {
   const i = GRADES[kind].findIndex((max) => v <= max);
   return LEVELS[i === -1 ? 3 : i];
 }
 
-function Gauge({ name, kind, value }) {
+function Badge({ name, kind, value }) {
   const lv = level(kind, value);
   return (
-    <div className={`air-item air-${lv.key}`}>
-      <span className="air-emoji" aria-hidden>{lv.emoji}</span>
-      <div>
-        <p className="air-name">{name}</p>
-        <p className="air-level">{lv.label}</p>
-        <p className="air-value">{Math.round(value)} ㎍/㎥</p>
-      </div>
+    <div className={`air-badge air-${lv.key}`} title={`${name} ${Math.round(value)} ㎍/㎥`}>
+      <span className="air-badge-name">{name} <small>{Math.round(value)}</small></span>
+      <span className="air-badge-level"><span aria-hidden>{lv.emoji}</span> {lv.label}</span>
     </div>
   );
 }
 
-export default function AirSection({ state }) {
-  let body;
+export function AirMini({ state }) {
   if (state.data == null) {
-    body = state.error ? <ErrorBox error={state.error} onRetry={state.reload} /> : <Loading lines={2} />;
-  } else {
-    const a = state.data;
-    const { pm10, pm2_5: pm25 } = a.current;
-    const worst = [level('pm10', pm10), level('pm2_5', pm25)].sort((x, y) => LEVELS.indexOf(y) - LEVELS.indexOf(x))[0];
-    // 앞으로 12시간 중 가장 나쁜 때
-    const nowIdx = Math.max(0, a.hourly.time.findIndex((t) => t >= a.current.time.slice(0, 13)));
-    const rest = a.hourly.time.slice(nowIdx, nowIdx + 12).map((t, i) => ({ t, v: a.hourly.pm2_5[nowIdx + i] }));
-    const peak = rest.reduce((m, x) => (x.v > (m?.v ?? -1) ? x : m), null);
-    const peakLv = peak ? level('pm2_5', peak.v) : null;
-    body = (
-      <>
-        {state.error && <p className="stale-note">최신 정보를 못 받아 이전 정보를 보여 드려요</p>}
-        <div className="air-row">
-          <Gauge name="미세먼지" kind="pm10" value={pm10} />
-          <Gauge name="초미세먼지" kind="pm2_5" value={pm25} />
-        </div>
-        <p className="tip">{worst.tip}</p>
-        {peakLv && LEVELS.indexOf(peakLv) > LEVELS.indexOf(worst) && (
-          <p className="tip tip-warn">
-            {Number(peak.t.slice(11, 13))}시쯤 초미세먼지가 &lsquo;{peakLv.label}&rsquo;으로 나빠질 수 있어요
-          </p>
-        )}
-      </>
-    );
+    return state.error
+      ? <div className="air-mini air-mini-empty">미세먼지 정보를<br />못 받았어요</div>
+      : <div className="air-mini"><div className="skeleton" /><div className="skeleton" /></div>;
   }
+  const { pm10, pm2_5: pm25 } = state.data.current;
   return (
-    <div className="air-section">
-      <h3 className="section-title"><span aria-hidden>🌫️</span>미세먼지</h3>
-      {body}
+    <div className="air-mini">
+      <Badge name="미세먼지" kind="pm10" value={pm10} />
+      <Badge name="초미세먼지" kind="pm2_5" value={pm25} />
     </div>
   );
+}
+
+// 지금 나쁘면 그 안내, 앞으로 12시간 안에 더 나빠지면 경고
+export function airTips(state) {
+  const a = state.data;
+  if (!a) return { tip: null, warn: null };
+  const { pm10, pm2_5: pm25 } = a.current;
+  const worst = [level('pm10', pm10), level('pm2_5', pm25)].sort((x, y) => LEVELS.indexOf(y) - LEVELS.indexOf(x))[0];
+  const nowIdx = Math.max(0, a.hourly.time.findIndex((t) => t >= a.current.time.slice(0, 13)));
+  const rest = a.hourly.time.slice(nowIdx, nowIdx + 12).map((t, i) => ({ t, v: a.hourly.pm2_5[nowIdx + i] }));
+  const peak = rest.reduce((m, x) => (x.v > (m?.v ?? -1) ? x : m), null);
+  const peakLv = peak ? level('pm2_5', peak.v) : null;
+  const warn = peakLv && LEVELS.indexOf(peakLv) > LEVELS.indexOf(worst) && LEVELS.indexOf(peakLv) >= 2
+    ? `${Number(peak.t.slice(11, 13))}시쯤 초미세먼지가 '${peakLv.label}'으로 나빠질 수 있어요`
+    : null;
+  return { tip: worst.tip || null, warn };
 }
