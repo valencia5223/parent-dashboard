@@ -162,9 +162,9 @@ export default function App() {
         <main className="grid" key={refreshKey}>
           <WeatherCard pos={pos} />
           <BusCard pos={pos} />
-          <HealthCard pos={pos} />
           <GasCard pos={pos} />
           <AptCard />
+          <HealthCard pos={pos} />
         </main>
       ) : (
         <div className="empty big">

@@ -150,7 +150,7 @@ export default function HealthCard({ pos }) {
   const [tab, setTab] = useState(() => (saved() === 'er' ? 'er' : 'pharm'));
   const pick = (id) => { setTab(id); try { localStorage.setItem('pd_health', id); } catch { /* 저장 못 해도 괜찮음 */ } };
   return (
-    <Card title="약국·응급실" icon="💊">
+    <Card title="약국·응급실" icon="💊" wide>
       <div className="chips" role="tablist" aria-label="약국·응급실 고르기">
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? ' chip-on' : ''}`} onClick={() => pick(t.id)}>
