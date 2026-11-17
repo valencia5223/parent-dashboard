@@ -188,8 +188,17 @@ export function fetchGas({ lat, lng }, fuel, radius) {
 }
 
 // ---------- 아파트 매매 실거래가 (국토교통부) ----------
-// 삼익소월은 산본역 근처지만 법정동은 금정동이다(국토부 자료: aptNm '삼익소월', umdNm '금정동')
-const APT = { lawd: '41410', dong: '금정동', keywords: ['소월', '삼익'] };
+// 단지 이름은 국토부 자료의 aptNm·umdNm 그대로(화면 이름과 다름). 군포시(41410) 한 번 받아 세 단지를 같이 거른다.
+//   삼익소월: 산본역 근처지만 법정동은 금정동, aptNm '삼익소월…'
+//   가야주공1차: 산본동 '가야주공' ('가야3주공' 은 다른 단지)
+//   한라주공2차: 산본동 '한라주공4-2' ('한라주공4' 는 1차)
+const LAWD = '41410';
+export const APTS = [
+  { id: 'soweol', label: '삼익소월', dong: '금정동', match: (n) => n.includes('삼익') && n.includes('소월') },
+  { id: 'gaya1', label: '가야주공1차', dong: '산본동', match: (n) => n === '가야주공' },
+  { id: 'halla2', label: '한라주공2차', dong: '산본동', match: (n) => n === '한라주공4-2' },
+];
+const aptOf = (t) => APTS.find((a) => t.dong === a.dong && a.match(t.name));
 
 function recentMonths(n) {
   const now = new Date(Date.now() + 9 * 3600e3); // 한국 시간
@@ -201,12 +210,13 @@ function recentMonths(n) {
   return out;
 }
 
-// 한 달치를 받아 이 동네·이 단지 이름에 걸리는 줄만 남겨 저장(지난달 이전은 하루, 최근 두 달은 3시간)
+// 한 달치를 받아 위 단지들에 걸리는 줄만 단지 id 를 붙여 저장(지난달 이전은 하루, 최근 두 달은 3시간)
+// 단지를 바꿀 때는 캐시 이름(apt3)을 올릴 것
 function aptMonth(key, ym, isRecent) {
-  return cached(`apt2:${APT.lawd}:${APT.dong}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
+  return cached(`apt3:${LAWD}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
     const rows = [];
     for (let page = 1; page <= 5; page++) {
-      const q = new URLSearchParams({ serviceKey: key, LAWD_CD: APT.lawd, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });
+      const q = new URLSearchParams({ serviceKey: key, LAWD_CD: LAWD, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });
       const text = await getText(`/api/rtms/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade?${q}`);
       checkGatewayError(text);
       const code = xmlValue(text, 'resultCode');
@@ -216,10 +226,9 @@ function aptMonth(key, ym, isRecent) {
       const total = Number(xmlValue(text, 'totalCount') || 0);
       if (rows.length >= total || items.length === 0) break;
     }
-    const dongWord = APT.dong.replace(/동$/, '');
     return rows
       .map((r) => ({
-        name: r.aptNm ?? r['아파트'] ?? '',
+        name: (r.aptNm ?? r['아파트'] ?? '').trim(),
         dong: (r.umdNm ?? r['법정동'] ?? '').trim(),
         amount: Number(String(r.dealAmount ?? r['거래금액'] ?? '').replace(/[,\s]/g, '')) || null, // 만원
         year: Number(r.dealYear ?? r['년']),
@@ -230,26 +239,20 @@ function aptMonth(key, ym, isRecent) {
         canceled: (r.cdealType ?? r['해제여부'] ?? '').trim() === 'O',
         kind: (r.dealingGbn ?? '').trim(), // 중개거래 / 직거래
       }))
-      .filter((t) => t.dong.includes(dongWord) && APT.keywords.some((k) => t.name.includes(k)));
+      .map((t) => ({ ...t, apt: aptOf(t)?.id }))
+      .filter((t) => t.apt);
   }, { persist: true });
 }
 
-export async function fetchApt() {
+export async function fetchApt(id) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
+  const apt = APTS.find((a) => a.id === id) || APTS[0];
   const months = recentMonths(13);
   const monthly = await Promise.all(months.map((ym, i) => aptMonth(key, ym, i < 2)));
-  const near = monthly.flat();
-  const pick = near.filter((t) => APT.keywords.every((k) => t.name.includes(k)));
-  const trades = pick
+  const trades = monthly.flat()
+    .filter((t) => t.apt === apt.id)
     .map((t) => ({ ...t, date: `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` }))
     .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
-  return {
-    complex: trades[0]?.name || APT.keywords.join(' '),
-    dong: APT.dong,
-    from: months.at(-1),
-    to: months[0],
-    trades,
-    candidates: trades.length ? [] : [...new Set(near.map((t) => t.name))],
-  };
+  return { id: apt.id, label: apt.label, dong: apt.dong, from: months.at(-1), to: months[0], trades };
 }

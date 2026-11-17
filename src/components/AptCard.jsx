@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { fetchApt, useFetch } from '../api.js';
+import { APTS, fetchApt, useFetch } from '../api.js';
 import Card, { Body } from './Card.jsx';
 
 // 만원 → "6억 2,500만원"
@@ -15,22 +15,34 @@ const dateText = (d) => `${Number(d.slice(2, 4))}.${Number(d.slice(5, 7))}.${Num
 // 면적은 소수점이 조금씩 달라도 같은 평형으로 묶는다
 const areaKey = (m2) => Math.round(m2);
 
+const saved = () => { try { return localStorage.getItem('pd_apt'); } catch { return null; } };
+
 export default function AptCard() {
-  const state = useFetch(fetchApt, [], { interval: 6 * 3600e3 });
-  const [area, setArea] = useState('all');
-  const [more, setMore] = useState(false);
+  const [id, setId] = useState(() => (APTS.some((a) => a.id === saved()) ? saved() : APTS[0].id));
+  const state = useFetch(() => fetchApt(id), [id], { interval: 6 * 3600e3 });
+  const pick = (v) => { setId(v); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
 
   return (
-    <Card title="삼익소월 실거래가" icon="🏠" state={state} onRefresh={state.reload} wide>
-      <Body state={state} lines={5}>
-        {(apt) => <AptBody apt={apt} area={area} setArea={setArea} more={more} setMore={setMore} />}
+    <Card title="아파트 실거래가" icon="🏠" state={state} onRefresh={state.reload}>
+      <div className="chips" role="tablist" aria-label="단지 고르기">
+        {APTS.map((a) => (
+          <button key={a.id} type="button" role="tab" aria-selected={id === a.id} className={`chip${id === a.id ? ' chip-on' : ''}`} onClick={() => pick(a.id)}>
+            {a.label}
+          </button>
+        ))}
+      </div>
+      {/* 단지를 바꾸는 동안에는 이전 단지 표 대신 뼈대를 보여 준다 */}
+      <Body state={state.data?.id === id ? state : { ...state, data: null }} lines={5}>
+        {(apt) => <AptBody key={apt.id} apt={apt} />}
       </Body>
       <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고)</p>
     </Card>
   );
 }
 
-function AptBody({ apt, area, setArea, more, setMore }) {
+function AptBody({ apt }) {
+  const [area, setArea] = useState('all');
+  const [more, setMore] = useState(false);
   const valid = useMemo(() => apt.trades.filter((t) => !t.canceled), [apt.trades]);
   const areas = useMemo(() => {
     const m = new Map();
@@ -47,7 +59,6 @@ function AptBody({ apt, area, setArea, more, setMore }) {
     return (
       <div className="empty">
         <p>최근 1년({apt.from.slice(0, 4)}.{apt.from.slice(4)} ~ {apt.to.slice(0, 4)}.{apt.to.slice(4)}) {apt.dong} 거래가 없어요.</p>
-        {apt.candidates.length > 0 && <p>비슷한 이름의 단지: {apt.candidates.join(', ')} — 이름 설정을 바꿔야 할 수 있어요</p>}
       </div>
     );
   }
@@ -57,7 +68,7 @@ function AptBody({ apt, area, setArea, more, setMore }) {
 
   return (
     <>
-      <p className="apt-sub">{apt.complex} · 군포시 {apt.dong} · 최근 1년 {valid.length}건</p>
+      <p className="apt-sub">{apt.label} · 군포시 {apt.dong} · 최근 1년 {valid.length}건</p>
       <div className="apt-summary">
         {areas.map((g) => (
           <button

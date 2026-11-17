@@ -64,7 +64,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .card-head h2 { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .card-icon { font-size: 1.3rem; }
-.card-tools { display: flex; gap: 6px; }
+.card-tools { display: flex; gap: 6px; align-items: center; }
 .card-foot { color: var(--text-sub); font-size: 0.85rem; }
 .card > .card-foot:last-child { margin-top: auto; }
 
@@ -91,7 +91,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .chips-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px; scroll-padding: 0 20px; }
 .chips-scroll::-webkit-scrollbar { display: none; }
 .chips-scroll .chip { flex-shrink: 0; white-space: nowrap; }
-.chips-gap { flex: 1; }
 .chip {
   border: 1px solid var(--border-color);
   background: var(--bg-subtle);
@@ -141,12 +140,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hourly-rain { font-size: 0.75rem; color: var(--primary); }
 
 /* 미세먼지 */
+/* 날씨 카드 안의 미세먼지 구역: 위에 가는 선으로 날씨와 나눔 */
+.air-section { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 14px; }
+.section-title { font-size: 1.05rem; font-weight: 800; display: flex; align-items: center; gap: 6px; }
 .air-row { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-.air-item { border-radius: var(--radius-md); padding: 14px 10px; text-align: center; }
-.air-name { font-weight: 700; color: var(--text-body); }
-.air-emoji { font-size: 2.4rem; line-height: 1.2; }
-.air-level { font-size: 1.5rem; font-weight: 800; }
-.air-value { font-size: 0.85rem; color: var(--text-sub); }
+.air-item { border-radius: var(--radius-md); padding: 10px 12px; display: flex; align-items: center; gap: 10px; min-width: 0; }
+.air-name { font-size: 0.85rem; font-weight: 700; color: var(--text-body); white-space: nowrap; }
+.air-emoji { font-size: 2rem; line-height: 1; }
+.air-level { font-size: 1.3rem; font-weight: 800; line-height: 1.2; white-space: nowrap; }
+.air-value { font-size: 0.8rem; color: var(--text-sub); white-space: nowrap; }
 .air-good { background: var(--good-bg); } .air-good .air-level { color: var(--good); }
 .air-normal { background: var(--normal-bg); } .air-normal .air-level { color: var(--normal); }
 .air-bad { background: var(--bad-bg); } .air-bad .air-level { color: var(--bad); }
@@ -262,15 +264,30 @@ button { font: inherit; color: inherit; cursor: pointer; }
 @media (max-width: 640px) {
   :root { font-size: 17px; }
   .app { padding: 14px 12px 32px; }
-  .app-header { flex-direction: column-reverse; gap: 4px; }
-  .clock { text-align: left; display: flex; gap: 10px; align-items: baseline; }
-  .clock-time { font-size: 1.2rem; }
+  /* 핸드폰 머리말은 두 줄: [제목 · 시각] / [위치 이름 … ⌖ 위치 바꾸기] */
+  .app-header {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: 'title clock' 'where where' 'err err';
+    align-items: center; gap: 6px 10px; margin-bottom: 14px;
+  }
+  .head-main { display: contents; }
+  .app-header h1 { grid-area: title; font-size: 1.2rem; }
+  .clock { grid-area: clock; display: flex; gap: 6px; align-items: baseline; }
+  .clock-date { font-size: 0.8rem; }
+  .clock-time { font-size: 1rem; }
+  .where { grid-area: where; margin: 0; flex-wrap: nowrap; gap: 6px; min-width: 0; }
+  .where-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+  .where-note { display: none; }
+  .where-tools { flex-shrink: 0; }
+  .gps-error { grid-area: err; margin: 0; font-size: 0.82rem; }
   .card { padding: 16px; }
   .chips-scroll { margin: 0 -16px; padding: 2px 16px; scroll-padding: 0 16px; }
   .chips { gap: 6px; }
   .chip { padding: 6px 12px; }
   .chip-sm { padding: 4px 10px; }
   .weather-now { grid-template-columns: auto 1fr; }
+  .air-item { gap: 8px; padding: 10px; }
+  .air-emoji { font-size: 1.7rem; }
+  .air-level { font-size: 1.15rem; }
   .weather-facts { grid-column: 1 / -1; justify-self: stretch; grid-template-columns: 1fr 1fr; background: var(--bg-subtle); border-radius: var(--radius-md); padding: 10px 12px; }
   /* 핸드폰: 순위·이름은 두 줄을 차지하고, 오른쪽에 가격과 그 아래 길찾기 */
   .gas-list li { grid-template-columns: 28px minmax(0, 1fr) auto; row-gap: 4px; }

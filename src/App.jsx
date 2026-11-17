@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { reverseGeocode } from './api.js';
 import WeatherCard from './components/WeatherCard.jsx';
-import AirCard from './components/AirCard.jsx';
 import BusCard from './components/BusCard.jsx';
 import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
@@ -111,7 +110,7 @@ function Clock() {
   }, []);
   return (
     <div className="clock">
-      <p className="clock-date">{now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' })}</p>
+      <p className="clock-date">{now.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'short' })}</p>
       <p className="clock-time">{now.toLocaleTimeString('ko-KR', { hour: 'numeric', minute: '2-digit' })}</p>
     </div>
   );
@@ -133,12 +132,12 @@ export default function App() {
   return (
     <div className="app">
       <header className="app-header">
-        <div>
+        <div className="head-main">
           <h1>우리 동네 생활정보</h1>
           <p className="where">
             <span aria-hidden>{pos?.source === 'manual' ? '📌' : '📍'}</span>
-            <strong>{where}</strong>
-            {pos?.source === 'gps' && <small>(지금 있는 곳)</small>}
+            <strong className="where-name" title={where}>{where}</strong>
+            {pos?.source === 'gps' && <small className="where-note">(지금 있는 곳)</small>}
             <span className="where-tools">
               <button
                 type="button"
@@ -161,7 +160,6 @@ export default function App() {
       {pos ? (
         <main className="grid" key={refreshKey}>
           <WeatherCard pos={pos} />
-          <AirCard pos={pos} />
           <BusCard pos={pos} />
           <GasCard pos={pos} />
           <AptCard />

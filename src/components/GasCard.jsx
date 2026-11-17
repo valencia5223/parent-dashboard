@@ -6,6 +6,7 @@ const FUELS = [
   { id: 'gasoline', label: '휘발유' },
   { id: 'diesel', label: '경유' },
   { id: 'lpg', label: 'LPG' },
+  { id: 'premium', label: '고급휘발유' },
 ];
 const RADII = [3000, 5000];
 const won = (v) => `${v.toLocaleString('ko-KR')}원`;
@@ -22,17 +23,22 @@ export default function GasCard({ pos }) {
   const pickRadius = (r) => { setRadius(r); save('pd_radius', String(r)); };
 
   return (
-    <Card title="싼 주유소" icon="⛽" state={state} onRefresh={state.reload}>
-      <div className="chips">
+    <Card
+      title="싼 주유소"
+      icon="⛽"
+      state={state}
+      onRefresh={state.reload}
+      actions={RADII.map((r) => (
+        <button key={r} type="button" className={`chip chip-sm${radius === r ? ' chip-on' : ''}`} onClick={() => pickRadius(r)} aria-pressed={radius === r} aria-label={`반경 ${r / 1000}km`}>
+          {r / 1000}km
+        </button>
+      ))}
+    >
+      {/* 유종 4개가 핸드폰 한 줄에 안 들어가면 옆으로 밀어 본다 */}
+      <div className="chips chips-scroll">
         {FUELS.map((f) => (
           <button key={f.id} type="button" className={`chip${fuel === f.id ? ' chip-on' : ''}`} onClick={() => pickFuel(f.id)} aria-pressed={fuel === f.id}>
             {f.label}
-          </button>
-        ))}
-        <span className="chips-gap" />
-        {RADII.map((r) => (
-          <button key={r} type="button" className={`chip chip-sm${radius === r ? ' chip-on' : ''}`} onClick={() => pickRadius(r)} aria-pressed={radius === r}>
-            {r / 1000}km
           </button>
         ))}
       </div>

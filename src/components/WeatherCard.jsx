@@ -1,5 +1,6 @@
-import { fetchWeather, useFetch } from '../api.js';
+import { fetchAir, fetchWeather, useFetch } from '../api.js';
 import Card, { Body } from './Card.jsx';
+import AirSection from './AirSection.jsx';
 
 // WMO 날씨 코드 → 한국어
 function sky(code, isDay = 1) {
@@ -30,8 +31,11 @@ const r = (v) => Math.round(v);
 
 export default function WeatherCard({ pos }) {
   const state = useFetch(() => fetchWeather(pos), [pos.lat, pos.lng], { interval: 15 * 60e3 });
+  // 미세먼지는 따로 받아 한쪽이 실패해도 다른 쪽은 보이게 한다
+  const air = useFetch(() => fetchAir(pos), [pos.lat, pos.lng], { interval: 30 * 60e3 });
+  const reloadAll = () => { state.reload(); air.reload(); };
   return (
-    <Card title="날씨" icon="🌡️" state={state} onRefresh={state.reload}>
+    <Card title="날씨·미세먼지" icon="🌡️" state={state} onRefresh={reloadAll}>
       <Body state={state} lines={4}>
         {(w) => {
           const cur = w.current;
@@ -75,6 +79,8 @@ export default function WeatherCard({ pos }) {
           );
         }}
       </Body>
+      <AirSection state={air} />
+      <p className="card-foot">미세먼지는 위성·모델 예측값이라 동네 측정소 수치와 조금 다를 수 있어요</p>
     </Card>
   );
 }
