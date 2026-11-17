@@ -28,6 +28,41 @@ function advice(cur, today) {
 }
 
 const r = (v) => Math.round(v);
+const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
+
+// 주간 날씨: 요일 · 하늘 · 비 확률 · 최저~최고(이번 주 전체 범위 안에서 막대로)
+function Week({ d }) {
+  const lo = Math.min(...d.temperature_2m_min);
+  const hi = Math.max(...d.temperature_2m_max);
+  const span = Math.max(1, hi - lo);
+  return (
+    <div className="week">
+      <h3 className="week-title">주간 날씨</h3>
+      <ol className="week-list">
+        {d.time.map((day, i) => {
+          const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
+          const name = i === 0 ? '오늘' : i === 1 ? '내일' : DAYS[dow];
+          const rain = d.precipitation_probability_max[i] ?? 0;
+          const min = d.temperature_2m_min[i];
+          const max = d.temperature_2m_max[i];
+          const [e, label] = sky(d.weather_code[i]);
+          return (
+            <li key={day} className={dow === 0 ? 'week-sun' : dow === 6 ? 'week-sat' : ''}>
+              <span className="week-day">{name}<small>{Number(day.slice(8, 10))}일</small></span>
+              <span className="week-sky" title={label}><span aria-hidden>{e}</span><span className="sr-only">{label}</span></span>
+              <span className={`week-rain${rain >= 50 ? ' week-rain-hi' : ''}`}>{rain >= 20 ? `${rain}%` : ''}</span>
+              <span className="week-min">{r(min)}°</span>
+              <span className="week-bar" aria-hidden>
+                <span style={{ left: `${((min - lo) / span) * 100}%`, right: `${((hi - max) / span) * 100}%` }} />
+              </span>
+              <span className="week-max">{r(max)}°</span>
+            </li>
+          );
+        })}
+      </ol>
+    </div>
+  );
+}
 
 export default function WeatherCard({ pos }) {
   const state = useFetch(() => fetchWeather(pos), [pos.lat, pos.lng], { interval: 15 * 60e3 });
@@ -77,12 +112,11 @@ export default function WeatherCard({ pos }) {
                   );
                 })}
               </ol>
-              <p className="card-foot">내일 {sky(d.weather_code[1])[1]} · {r(d.temperature_2m_min[1])}° ~ {r(d.temperature_2m_max[1])}° · 비 {d.precipitation_probability_max[1] ?? 0}%</p>
+              <Week d={d} />
             </>
           );
         }}
       </Body>
-      <p className="card-foot">미세먼지는 위성·모델 예측값이라 동네 측정소 수치와 조금 다를 수 있어요</p>
     </Card>
   );
 }

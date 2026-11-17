@@ -140,6 +140,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hourly-rain { font-size: 0.75rem; color: var(--primary); }
 
 /* 미세먼지 */
+/* 주간 날씨: 한 줄에 하루 */
+.week { display: flex; flex-direction: column; gap: 4px; }
+.week-title { font-size: 1rem; font-weight: 800; }
+.week-list { list-style: none; padding: 0; }
+.week-list li { display: grid; grid-template-columns: 64px 30px 40px 32px minmax(0, 1fr) 34px; align-items: center; gap: 6px; padding: 7px 0; border-bottom: 1px solid var(--border-color); }
+.week-list li:last-child { border-bottom: 0; }
+.week-day { font-weight: 700; display: flex; align-items: baseline; gap: 4px; white-space: nowrap; }
+.week-day small { font-size: 0.72rem; font-weight: 500; color: var(--text-sub); }
+.week-sun .week-day { color: #dc2626; }
+.week-sat .week-day { color: var(--primary); }
+.week-sky { font-size: 1.35rem; text-align: center; line-height: 1; }
+.week-rain { font-size: 0.78rem; color: var(--text-sub); text-align: right; }
+.week-rain-hi { color: var(--primary); font-weight: 700; }
+.week-min { color: var(--text-sub); text-align: right; font-weight: 600; }
+.week-max { font-weight: 800; }
+.week-bar { position: relative; height: 6px; border-radius: 3px; background: var(--bg-subtle); }
+.week-bar span { position: absolute; top: 0; bottom: 0; border-radius: 3px; background: linear-gradient(90deg, #60a5fa, #f59e0b); min-width: 6px; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+
 /* 날씨 카드 안의 미세먼지: 온도 오른쪽 작은 표시 두 개 */
 .air-mini { justify-self: end; display: flex; flex-direction: column; gap: 6px; min-width: 0; width: 100%; max-width: 170px; }
 .air-mini .skeleton { height: 40px; margin: 0; }

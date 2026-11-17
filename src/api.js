@@ -20,7 +20,7 @@ export async function getJSON(url) {
 // 날씨·미세먼지는 키 없이 브라우저에서 바로 (Open-Meteo)
 export function fetchWeather({ lat, lng }) {
   const q = new URLSearchParams({
-    latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '2',
+    latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '7', // 주간 날씨까지
     current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation,is_day',
     hourly: 'temperature_2m,precipitation_probability,weather_code,is_day',
     daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset',
@@ -31,7 +31,7 @@ export function fetchWeather({ lat, lng }) {
 
 export function fetchAir({ lat, lng }) {
   const q = new URLSearchParams({
-    latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '2',
+    latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '7', // 주간 날씨까지
     current: 'pm10,pm2_5', hourly: 'pm10,pm2_5',
   });
   return getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?${q}`);
