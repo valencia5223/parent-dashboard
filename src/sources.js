@@ -257,3 +257,59 @@ export async function fetchApt(id) {
     .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
   return { id: apt.id, label: apt.label, dong: apt.dong, from: months[12], to: months[0], trades };
 }
+
+// ---------- 약국·응급실 (국립중앙의료원, 공공데이터포털 같은 키) ----------
+// 이 API 는 CORS 를 허용해서(사이트 주소를 그대로 돌려줌) 중계 없이 브라우저에서 바로 부른다.
+const NMC = 'https://apis.data.go.kr/B552657';
+async function nmcItems(path, params) {
+  const key = dataKey();
+  if (!key) throw needKey('공공데이터포털');
+  const q = new URLSearchParams({ serviceKey: key, pageNo: '1', ...params });
+  const text = await getText(`${NMC}${path}?${q}`);
+  checkGatewayError(text);
+  const code = xmlValue(text, 'resultCode');
+  if (code && !['00', '000', '0'].includes(code)) throw new FetchError(xmlValue(text, 'resultMsg') || `의료기관 정보 오류 (${code})`);
+  return xmlItems(text, 'item');
+}
+// '031-00-0000' 처럼 빈 번호는 버린다
+const tel = (v) => { const t = (v || '').trim(); return t.replace(/\D/g, '').length >= 8 && !/-00-0000$/.test(t) ? t : ''; };
+const hm = (v) => (/^\d{3,4}$/.test(v || '') ? Number(v) : null);
+
+// 가까운 약국 100곳(산본역 근처면 1.5km 남짓)과 오늘 요일의 여닫는 시각(HHMM)
+export function fetchPharmacies({ lat, lng }) {
+  return cached(`pharm:${lat.toFixed(3)},${lng.toFixed(3)}`, 30 * 60e3, async () => {
+    const list = await nmcItems('/ErmctInsttInfoInqireService/getParmacyLcinfoInqire', { WGS84_LON: String(lng), WGS84_LAT: String(lat), numOfRows: '100' });
+    return list.map((o) => ({
+      id: o.hpid, name: o.dutyName, addr: o.dutyAddr || '', tel: tel(o.dutyTel1),
+      distance: num(o.distance), lat: num(o.latitude), lng: num(o.longitude),
+      start: hm(o.startTime), end: hm(o.endTime),
+    }));
+  }, { persist: true });
+}
+
+// 가까운 응급실 + 실시간 남은 병상(hvec, 병원이 입력한 값. 0 이하면 꽉 참)
+export function fetchEmergency({ lat, lng }) {
+  return cached(`er:${lat.toFixed(3)},${lng.toFixed(3)}`, 3 * 60e3, async () => {
+    const list = (await nmcItems('/ErmctInfoInqireService/getEgytLcinfoInqire', { WGS84_LON: String(lng), WGS84_LAT: String(lat), numOfRows: '6' }))
+      .filter((o) => num(o.distance) == null || num(o.distance) <= 20);
+    // 병상은 시도 단위로 한 번에 받아 병원 id 로 맞춘다(경기도 약 70곳)
+    const stages = [...new Set(list.map((o) => (o.dutyAddr || '').split(' ')[0]).filter(Boolean))];
+    const beds = new Map();
+    await Promise.all(stages.map(async (s) => {
+      try {
+        const rows = await nmcItems('/ErmctInfoInqireService/getEmrrmRltmUsefulSckbdInfoInqire', { STAGE1: s, numOfRows: '500' });
+        for (const b of rows) beds.set(b.hpid, b);
+      } catch { /* 병상을 못 받아도 목록은 보여 준다 */ }
+    }));
+    return list.map((o) => {
+      const b = beds.get(o.hpid);
+      return {
+        id: o.hpid, name: o.dutyName, kind: o.dutyDivName || '', addr: o.dutyAddr || '',
+        distance: num(o.distance), lat: num(o.latitude), lng: num(o.longitude),
+        tel: tel(b?.dutyTel3) || tel(o.dutyTel1),
+        beds: b ? num(b.hvec) : null,
+        bedsAt: b?.hvidate || '', // YYYYMMDDHHMMSS
+      };
+    });
+  });
+}

@@ -140,6 +140,26 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hourly-rain { font-size: 0.75rem; color: var(--primary); }
 
 /* 미세먼지 */
+/* 약국·응급실 */
+.med-sub { color: var(--text-body); }
+.med-sub b { color: var(--primary); }
+.med-list { list-style: none; padding: 0; }
+.med-list li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+.med-list li:last-child { border-bottom: 0; }
+.med-main { flex: 1; min-width: 0; }
+.med-name { font-weight: 800; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.med-meta { font-size: 0.85rem; color: var(--text-sub); }
+.med-open { color: var(--good); font-weight: 700; }
+.med-closing { color: var(--bad); font-weight: 700; }
+.med-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.bed { font-weight: 700; font-size: 0.9rem; }
+.bed-ok { color: var(--good); }
+.bed-few { color: var(--bad); }
+.bed-full { color: var(--worst); }
+.bed-none { color: var(--text-sub); font-weight: 500; }
+.btn-119 { background: #dc2626; border-color: #dc2626; color: #fff; font-size: 1.1rem; font-weight: 800; min-height: 48px; }
+.btn-119:hover { background: #b91c1c; }
+
 /* 주간 날씨: 한 줄에 하루 */
 .week { display: flex; flex-direction: column; gap: 4px; }
 .week-title { font-size: 1rem; font-weight: 800; }
@@ -284,6 +304,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 640px) {
+  /* 약국·응급실: 핸드폰에서는 전화·길찾기 버튼을 작게 */
+  .med-actions .btn { min-height: 34px; padding: 0 10px; font-size: 0.82rem; }
   :root { font-size: 17px; }
   .app { padding: 14px 12px 32px; }
   /* 핸드폰 머리말은 두 줄: [제목 · 시각] / [위치 이름 … ⌖ 위치 바꾸기] */

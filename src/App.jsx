@@ -4,6 +4,7 @@ import WeatherCard from './components/WeatherCard.jsx';
 import BusCard from './components/BusCard.jsx';
 import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
+import HealthCard from './components/HealthCard.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
 
 // 위치를 못 받으면 산본역 근처로
@@ -161,6 +162,7 @@ export default function App() {
         <main className="grid" key={refreshKey}>
           <WeatherCard pos={pos} />
           <BusCard pos={pos} />
+          <HealthCard pos={pos} />
           <GasCard pos={pos} />
           <AptCard />
         </main>
@@ -173,7 +175,7 @@ export default function App() {
 
       <footer className="app-foot">
         <button type="button" className="btn" onClick={() => setRefreshKey((k) => k + 1)}>전체 새로고침</button>
-        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 주유소 오피넷 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
+        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 주유소 오피넷 · 약국·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
       </footer>
 
       {picking && (
