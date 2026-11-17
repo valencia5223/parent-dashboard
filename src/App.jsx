@@ -26,24 +26,31 @@ function useLocation() {
   const [label, setLabel] = useState('');
   const [recent, setRecent] = useState(() => load(RECENT_KEY, []));
 
+  // GPS 로 지금 있는 곳 찾기. 성공했을 때만 위치를 바꾸고, 실패하면 보던 위치를 그대로 둔다.
+  const [gpsError, setGpsError] = useState('');
   const locate = useCallback(() => {
-    store(PLACE_KEY, null);
+    setGpsError('');
     if (!navigator.geolocation) {
-      setStatus('unsupported');
-      setPos(DEFAULT_POS);
+      setGpsError('이 기기에서는 위치를 찾을 수 없어요');
+      setStatus((s) => (s === 'finding' ? 'unsupported' : s));
+      setPos((p) => p || DEFAULT_POS);
       return;
     }
     setStatus('finding');
     navigator.geolocation.getCurrentPosition(
       (p) => {
+        store(PLACE_KEY, null);
         setPos({ lat: round(p.coords.latitude), lng: round(p.coords.longitude), source: 'gps' });
         setStatus('gps');
       },
-      () => {
-        setStatus('denied');
-        setPos((p) => (p && p.source !== 'manual' ? p : DEFAULT_POS));
+      (err) => {
+        setGpsError(err.code === 1
+          ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요'
+          : '지금 위치를 찾지 못했어요. 잠시 뒤 다시 눌러 주세요');
+        setPos((p) => p || DEFAULT_POS);
+        setStatus((s) => (s === 'finding' ? 'done' : s));
       },
-      { enableHighAccuracy: true, timeout: 10000, maximumAge: 5 * 60e3 },
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
     );
   }, []);
 
@@ -79,7 +86,21 @@ function useLocation() {
     return () => { alive = false; };
   }, [pos]);
 
-  return { pos, status, label, recent, locate, pick, removeRecent };
+  return { pos, status, label, recent, gpsError, locate, pick, removeRecent };
+}
+
+// 조준점 모양 '현재 위치' 아이콘
+function LocateIcon() {
+  return (
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="7" />
+      <circle cx="12" cy="12" r="2.6" fill="currentColor" stroke="none" />
+      <line x1="12" y1="1.5" x2="12" y2="5" />
+      <line x1="12" y1="19" x2="12" y2="22.5" />
+      <line x1="1.5" y1="12" x2="5" y2="12" />
+      <line x1="19" y1="12" x2="22.5" y2="12" />
+    </svg>
+  );
 }
 
 function Clock() {
@@ -97,14 +118,14 @@ function Clock() {
 }
 
 export default function App() {
-  const { pos, status, label, recent, locate, pick, removeRecent } = useLocation();
+  const { pos, status, label, recent, gpsError, locate, pick, removeRecent } = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
   const [picking, setPicking] = useState(false);
 
   let where;
   if (status === 'finding') where = '현재 위치를 찾는 중…';
   else if (pos?.source === 'manual') where = pos.name;
-  else if (pos?.source === 'default') where = '산본역 근처 (위치를 못 받아 기본 위치로 보여 드려요)';
+  else if (pos?.source === 'default') where = '산본역 근처 (기본 위치)';
   else where = label || '지금 있는 곳';
 
   const closePicker = useCallback(() => setPicking(false), []);
@@ -118,8 +139,21 @@ export default function App() {
             <span aria-hidden>{pos?.source === 'manual' ? '📌' : '📍'}</span>
             <strong>{where}</strong>
             {pos?.source === 'gps' && <small>(지금 있는 곳)</small>}
-            <button type="button" className="btn btn-sm" onClick={() => setPicking(true)}>위치 바꾸기</button>
+            <span className="where-tools">
+              <button
+                type="button"
+                className={['btn', 'btn-sm', 'btn-locate', pos?.source === 'gps' && 'btn-on', status === 'finding' && 'is-finding'].filter(Boolean).join(' ')}
+                onClick={locate}
+                disabled={status === 'finding'}
+                aria-label="지금 있는 곳 찾기"
+                title="지금 있는 곳 찾기"
+              >
+                <LocateIcon />
+              </button>
+              <button type="button" className="btn btn-sm" onClick={() => setPicking(true)}>위치 바꾸기</button>
+            </span>
           </p>
+          {gpsError && <p className="gps-error" role="alert">{gpsError}</p>}
         </div>
         <Clock />
       </header>

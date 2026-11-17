@@ -32,7 +32,7 @@ export default function GasCard({ pos }) {
         <span className="chips-gap" />
         {RADII.map((r) => (
           <button key={r} type="button" className={`chip chip-sm${radius === r ? ' chip-on' : ''}`} onClick={() => pickRadius(r)} aria-pressed={radius === r}>
-            {r / 1000}km 안
+            {r / 1000}km
           </button>
         ))}
       </div>
