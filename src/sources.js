@@ -137,7 +137,9 @@ export function fetchArrivals(stationId) {
   return cached(`arr:${stationId}`, 20e3, async () => {
     const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
     const list = gbisList(await getText(`/api/gbis/busarrivalservice/v2/getBusArrivalListv2?${q}`), 'busArrivalList');
-    const seat = (v) => (num(v) == null || num(v) < 0 ? null : num(v));
+    // 빈자리는 좌석버스(직행좌석 11·좌석 12·광역급행 14·시외 16 등)만 의미가 있다. 일반버스는 0 이나 -1 로 온다.
+    const SEAT_TYPES = new Set(['11', '12', '14', '16', '21', '22']);
+    const seat = (b) => (SEAT_TYPES.has(String(b.routeTypeCd)) && num(b.remainSeatCnt1) != null && num(b.remainSeatCnt1) >= 0 ? num(b.remainSeatCnt1) : null);
     return list
       .map((b) => ({
         routeId: String(b.routeId),
@@ -146,7 +148,7 @@ export function fetchArrivals(stationId) {
         min1: num(b.predictTime1),
         min2: num(b.predictTime2),
         stops1: num(b.locationNo1),
-        seats1: seat(b.remainSeatCnt1),
+        seats1: seat(b),
       }))
       .sort((a, b) => (a.min1 ?? 999) - (b.min1 ?? 999));
   });
@@ -186,7 +188,8 @@ export function fetchGas({ lat, lng }, fuel, radius) {
 }
 
 // ---------- 아파트 매매 실거래가 (국토교통부) ----------
-const APT = { lawd: '41410', dong: '산본동', keywords: ['소월', '삼익'] }; // 군포시 산본동 삼익소월
+// 삼익소월은 산본역 근처지만 법정동은 금정동이다(국토부 자료: aptNm '삼익소월', umdNm '금정동')
+const APT = { lawd: '41410', dong: '금정동', keywords: ['소월', '삼익'] };
 
 function recentMonths(n) {
   const now = new Date(Date.now() + 9 * 3600e3); // 한국 시간
@@ -200,7 +203,7 @@ function recentMonths(n) {
 
 // 한 달치를 받아 이 동네·이 단지 이름에 걸리는 줄만 남겨 저장(지난달 이전은 하루, 최근 두 달은 3시간)
 function aptMonth(key, ym, isRecent) {
-  return cached(`apt:${APT.lawd}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
+  return cached(`apt2:${APT.lawd}:${APT.dong}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
     const rows = [];
     for (let page = 1; page <= 5; page++) {
       const q = new URLSearchParams({ serviceKey: key, LAWD_CD: APT.lawd, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });

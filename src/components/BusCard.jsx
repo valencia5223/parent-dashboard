@@ -22,7 +22,7 @@ function Arrivals({ station }) {
               <span className="bus-time">
                 <strong>{minText(b.min1) || '정보 없음'}</strong>
                 {b.stops1 != null && <small>{b.stops1}정류장 전</small>}
-                {b.seats1 != null && <small>빈자리 {b.seats1}</small>}
+                {b.seats1 != null && <small>{b.seats1 === 0 ? '빈자리 없음' : `빈자리 ${b.seats1}`}</small>}
               </span>
               <span className="bus-next">{b.min2 != null && `다음 ${minText(b.min2)}`}</span>
             </li>
