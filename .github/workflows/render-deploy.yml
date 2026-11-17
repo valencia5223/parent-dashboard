@@ -1,0 +1,20 @@
+# main 에 push 될 때마다 Render 배포를 시작한다.
+# Render 의 GitHub 자동 배포 알림이 오지 않아서(저장소를 지웠다 다시 만든 뒤) Deploy Hook 으로 대신 부른다.
+# 주소는 저장소 Settings → Secrets and variables → Actions 의 RENDER_DEPLOY_HOOK 에 있다.
+name: Render 배포
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy Hook 부르기
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "RENDER_DEPLOY_HOOK 시크릿이 없습니다"; exit 1; fi
+          curl -fsS -X POST "$HOOK" -o /dev/null -w "Render 응답: %{http_code}\n"
