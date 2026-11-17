@@ -2,12 +2,37 @@ import { useEffect, useState } from 'react';
 import { fetchArrivals, fetchStations, useFetch } from '../api.js';
 import Card, { Body, Loading, ErrorBox } from './Card.jsx';
 
+const SHOW = 5; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
+
+function BusRow({ b }) {
+  const sub = [
+    b.stops1 != null && `${b.stops1}정류장 전`,
+    b.seats1 != null && (b.seats1 === 0 ? '빈자리 없음' : `빈자리 ${b.seats1}`),
+  ].filter(Boolean).join(' · ');
+  return (
+    <li className={b.min1 != null && b.min1 <= 3 ? 'bus-soon' : ''}>
+      <div className="bus-left">
+        <span className="bus-route">{b.route}</span>
+        {b.dest && <span className="bus-dest">{b.dest} 방면</span>}
+      </div>
+      <div className="bus-right">
+        <strong className="bus-min">{minText(b.min1) || '정보 없음'}</strong>
+        {sub && <small>{sub}</small>}
+        {b.min2 != null && <small>다음 {minText(b.min2)}</small>}
+      </div>
+    </li>
+  );
+}
 
 function Arrivals({ station }) {
   const state = useFetch(() => fetchArrivals(station.id), [station.id], { interval: 30e3 });
+  const [all, setAll] = useState(false);
   if (state.data == null) return state.error ? <ErrorBox error={state.error} onRetry={state.reload} /> : <Loading lines={4} />;
-  const list = state.data;
+
+  // 도착 정보가 있는 노선을 먼저, 없는 노선은 뒤로
+  const list = [...state.data].sort((a, b) => (a.min1 == null) - (b.min1 == null) || (a.min1 ?? 0) - (b.min1 ?? 0));
+  const shown = all ? list : list.slice(0, SHOW);
   return (
     <>
       {state.error && <p className="stale-note">최신 정보를 못 받아 이전 정보를 보여 드려요</p>}
@@ -15,19 +40,13 @@ function Arrivals({ station }) {
         <p className="empty">지금 오는 버스가 없어요</p>
       ) : (
         <ul className="bus-list">
-          {list.map((b) => (
-            <li key={b.routeId} className={b.min1 != null && b.min1 <= 3 ? 'bus-soon' : ''}>
-              <span className="bus-route">{b.route}</span>
-              <span className="bus-dest">{b.dest && `${b.dest} 방면`}</span>
-              <span className="bus-time">
-                <strong>{minText(b.min1) || '정보 없음'}</strong>
-                {b.stops1 != null && <small>{b.stops1}정류장 전</small>}
-                {b.seats1 != null && <small>{b.seats1 === 0 ? '빈자리 없음' : `빈자리 ${b.seats1}`}</small>}
-              </span>
-              <span className="bus-next">{b.min2 != null && `다음 ${minText(b.min2)}`}</span>
-            </li>
-          ))}
+          {shown.map((b) => <BusRow key={b.routeId} b={b} />)}
         </ul>
+      )}
+      {list.length > SHOW && (
+        <button type="button" className="btn btn-block" onClick={() => setAll(!all)} aria-expanded={all}>
+          {all ? '접기' : `노선 ${list.length - SHOW}개 더 보기`}
+        </button>
       )}
       <p className="card-foot">30초마다 저절로 새로 고쳐요</p>
     </>
@@ -49,8 +68,8 @@ export default function BusCard({ pos }) {
           const station = list.find((s) => s.id === picked) || list[0];
           return (
             <>
-              <div className="chips" role="tablist" aria-label="정류장 고르기">
-                {list.slice(0, 4).map((s) => (
+              <div className="chips chips-scroll" role="tablist" aria-label="정류장 고르기">
+                {list.slice(0, 5).map((s) => (
                   <button
                     key={s.id}
                     type="button"

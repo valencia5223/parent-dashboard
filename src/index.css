@@ -45,7 +45,11 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .clock-date { color: var(--text-sub); font-size: 0.95rem; }
 .clock-time { font-size: 1.7rem; font-weight: 800; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
+/* 기본(핸드폰) 한 줄. 넓은 화면은 날씨|미세먼지, 버스|주유소 두 칸, 실거래가는 전체 폭 */
+.grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 16px; }
+@media (min-width: 860px) {
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); align-items: stretch; }
+}
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
@@ -62,6 +66,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card-icon { font-size: 1.3rem; }
 .card-tools { display: flex; gap: 6px; }
 .card-foot { color: var(--text-sub); font-size: 0.85rem; }
+.card > .card-foot:last-child { margin-top: auto; }
 
 .btn, .btn-icon {
   border: 1px solid var(--border-color);
@@ -83,6 +88,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
 :focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
 
 .chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chips-scroll { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; margin: 0 -20px; padding: 2px 20px; scroll-padding: 0 20px; }
+.chips-scroll::-webkit-scrollbar { display: none; }
+.chips-scroll .chip { flex-shrink: 0; white-space: nowrap; }
 .chips-gap { flex: 1; }
 .chip {
   border: 1px solid var(--border-color);
@@ -146,14 +154,15 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* 버스 */
 .bus-list { display: flex; flex-direction: column; }
-.bus-list li { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'route time next' 'dest time next'; column-gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); align-items: center; }
+.bus-list li { display: flex; justify-content: space-between; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
 .bus-list li:last-child { border-bottom: 0; }
-.bus-route { grid-area: route; font-size: 1.3rem; font-weight: 800; }
-.bus-dest { grid-area: dest; font-size: 0.8rem; color: var(--text-sub); }
-.bus-time { grid-area: time; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
-.bus-time strong { font-size: 1.15rem; }
-.bus-next { grid-area: next; font-size: 0.8rem; color: var(--text-sub); min-width: 4.5em; text-align: right; }
-.bus-soon .bus-time strong { color: var(--worst); }
+.bus-left { display: flex; flex-direction: column; min-width: 0; }
+.bus-route { font-size: 1.3rem; font-weight: 800; line-height: 1.25; }
+.bus-dest { font-size: 0.8rem; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bus-right { display: flex; flex-direction: column; align-items: flex-end; text-align: right; flex-shrink: 0; }
+.bus-min { font-size: 1.15rem; white-space: nowrap; }
+.bus-right small { white-space: nowrap; }
+.bus-soon .bus-min { color: var(--worst); }
 
 /* 주유소 */
 .gas-list li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
@@ -252,6 +261,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .clock-time { font-size: 1.2rem; }
   .grid { grid-template-columns: 1fr; }
   .card { padding: 16px; }
+  .chips-scroll { margin: 0 -16px; padding: 2px 16px; scroll-padding: 0 16px; }
   .weather-now { grid-template-columns: auto 1fr; }
   .weather-facts { grid-column: 1 / -1; justify-self: stretch; grid-template-columns: 1fr 1fr; background: var(--bg-subtle); border-radius: var(--radius-md); padding: 10px 12px; }
   .gas-list li { grid-template-columns: 28px 1fr auto; }
