@@ -1,29 +1,199 @@
+/* 부모님이 보기 편하게: 큰 글자, 높은 대비, 넉넉한 누르는 자리 */
 :root {
-  --primary: #4f46e5;
-  --bg: #f6f7fb;
+  --primary: #2563eb;
+  --primary-soft: #e8efff;
+  --bg: #f3f5f9;
   --bg-card: #ffffff;
+  --bg-subtle: #f6f7fa;
   --text-main: #111827;
-  --text-sub: #6b7280;
-  --border-color: #e5e7eb;
-  --radius-lg: 16px;
-  font-family: 'Pretendard', system-ui, sans-serif;
+  --text-body: #273142;
+  --text-sub: #5b6475;
+  --border-color: #e2e6ee;
+  --good: #1f8f4e;
+  --good-bg: #e6f6ec;
+  --normal: #2563eb;
+  --normal-bg: #e8efff;
+  --bad: #c2410c;
+  --bad-bg: #fff1e6;
+  --worst: #b91c1c;
+  --worst-bg: #fdecec;
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  font-family: 'Pretendard', system-ui, -apple-system, sans-serif;
+  font-size: 18px;
+  line-height: 1.5;
   color: var(--text-main);
   background: var(--bg);
+  -webkit-text-size-adjust: 100%;
 }
 
 * { box-sizing: border-box; }
 body { margin: 0; }
+p, h1, h2, dl, dd, ol, ul { margin: 0; }
+ol, ul { padding: 0; list-style: none; }
+small { font-size: 0.8em; color: var(--text-sub); font-weight: 500; }
+button { font: inherit; color: inherit; cursor: pointer; }
 
-.app { max-width: 1100px; margin: 0 auto; padding: 24px 16px; }
-.app-header h1 { margin: 0; font-size: 26px; }
-.app-header .sub { margin: 4px 0 24px; color: var(--text-sub); }
+.app { max-width: 1180px; margin: 0 auto; padding: 20px 16px 40px; }
 
-.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 16px; }
+.app-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 20px; }
+.app-header h1 { font-size: 1.6rem; font-weight: 800; letter-spacing: -0.02em; }
+.where { margin-top: 6px; color: var(--text-body); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.link-btn { background: none; border: 0; padding: 4px 2px; color: var(--primary); text-decoration: underline; font-size: 0.9rem; }
+.clock { text-align: right; flex-shrink: 0; }
+.clock-date { color: var(--text-sub); font-size: 0.95rem; }
+.clock-time { font-size: 1.7rem; font-weight: 800; }
+
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }
 .card {
   background: var(--bg-card);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
 }
-.card h2 { margin: 0 0 8px; font-size: 18px; }
-.card p { margin: 0; color: var(--text-sub); }
+.card-wide { grid-column: 1 / -1; }
+.card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.card-head h2 { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.card-icon { font-size: 1.3rem; }
+.card-tools { display: flex; gap: 6px; }
+.card-foot { color: var(--text-sub); font-size: 0.85rem; }
+
+.btn, .btn-icon {
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  border-radius: var(--radius-md);
+  min-height: 44px;
+  padding: 0 16px;
+  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  color: var(--text-main);
+}
+.btn:hover, .btn-icon:hover { background: var(--bg-subtle); }
+.btn-icon { width: 44px; padding: 0; font-size: 1.3rem; }
+.btn-sm { min-height: 38px; padding: 0 12px; font-size: 0.9rem; }
+.btn-block { width: 100%; }
+:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+
+.chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chips-gap { flex: 1; }
+.chip {
+  border: 1px solid var(--border-color);
+  background: var(--bg-subtle);
+  border-radius: 999px;
+  min-height: 44px;
+  padding: 6px 16px;
+  font-weight: 700;
+  display: inline-flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.25;
+}
+.chip small { font-size: 0.72rem; }
+.chip-sm { min-height: 38px; font-size: 0.85rem; padding: 4px 12px; }
+.chip-on { background: var(--primary); border-color: var(--primary); color: #fff; }
+.chip-on small { color: rgba(255, 255, 255, 0.85); }
+
+.tip { background: var(--primary-soft); color: var(--text-body); border-radius: var(--radius-md); padding: 10px 14px; font-weight: 600; }
+.tip-warn { background: var(--bad-bg); color: var(--bad); }
+.empty { color: var(--text-sub); padding: 12px 0; display: flex; flex-direction: column; gap: 6px; }
+.empty.big { font-size: 1.1rem; text-align: center; padding: 60px 0; }
+.stale-note { color: var(--bad); font-size: 0.85rem; }
+
+/* 뼈대 로딩 */
+.skeleton-wrap { display: flex; flex-direction: column; gap: 10px; padding: 4px 0; }
+.skeleton { height: 22px; border-radius: var(--radius-sm); background: linear-gradient(90deg, #eceff4 0%, #f6f7fa 50%, #eceff4 100%); background-size: 200% 100%; animation: shine 1.4s ease-in-out infinite; }
+@keyframes shine { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+
+.error-box { border-radius: var(--radius-md); background: var(--worst-bg); padding: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.error-box.error-setup { background: var(--bg-subtle); }
+.error-title { font-weight: 800; }
+.error-msg { color: var(--text-sub); font-size: 0.9rem; }
+
+/* 날씨 */
+.weather-now { display: grid; grid-template-columns: auto auto 1fr; align-items: center; gap: 12px 16px; }
+.weather-emoji { font-size: 3.4rem; line-height: 1; }
+.big-num { font-size: 3rem; font-weight: 800; line-height: 1; letter-spacing: -0.03em; }
+.weather-label { font-weight: 700; color: var(--text-body); }
+.weather-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; justify-self: end; }
+.weather-facts dt { font-size: 0.78rem; color: var(--text-sub); }
+.weather-facts dd { font-weight: 700; font-size: 0.95rem; }
+.hourly { display: grid; grid-template-columns: repeat(5, 1fr); gap: 6px; }
+.hourly li { background: var(--bg-subtle); border-radius: var(--radius-md); padding: 8px 4px; display: flex; flex-direction: column; align-items: center; gap: 2px; }
+.hourly-time { font-size: 0.75rem; color: var(--text-sub); white-space: nowrap; }
+.hourly-emoji { font-size: 1.4rem; }
+.hourly-temp { font-weight: 800; }
+.hourly-rain { font-size: 0.75rem; color: var(--primary); }
+
+/* 미세먼지 */
+.air-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.air-item { border-radius: var(--radius-md); padding: 14px 10px; text-align: center; }
+.air-name { font-weight: 700; color: var(--text-body); }
+.air-emoji { font-size: 2.4rem; line-height: 1.2; }
+.air-level { font-size: 1.5rem; font-weight: 800; }
+.air-value { font-size: 0.85rem; color: var(--text-sub); }
+.air-good { background: var(--good-bg); } .air-good .air-level { color: var(--good); }
+.air-normal { background: var(--normal-bg); } .air-normal .air-level { color: var(--normal); }
+.air-bad { background: var(--bad-bg); } .air-bad .air-level { color: var(--bad); }
+.air-worst { background: var(--worst-bg); } .air-worst .air-level { color: var(--worst); }
+
+/* 버스 */
+.bus-list { display: flex; flex-direction: column; }
+.bus-list li { display: grid; grid-template-columns: auto 1fr auto; grid-template-areas: 'route time next' 'dest time next'; column-gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--border-color); align-items: center; }
+.bus-list li:last-child { border-bottom: 0; }
+.bus-route { grid-area: route; font-size: 1.3rem; font-weight: 800; }
+.bus-dest { grid-area: dest; font-size: 0.8rem; color: var(--text-sub); }
+.bus-time { grid-area: time; display: flex; flex-direction: column; align-items: flex-end; text-align: right; }
+.bus-time strong { font-size: 1.15rem; }
+.bus-next { grid-area: next; font-size: 0.8rem; color: var(--text-sub); min-width: 4.5em; text-align: right; }
+.bus-soon .bus-time strong { color: var(--worst); }
+
+/* 주유소 */
+.gas-list li { display: grid; grid-template-columns: 28px 1fr auto auto; gap: 10px; align-items: center; padding: 10px 0; border-bottom: 1px solid var(--border-color); }
+.gas-list li:last-child { border-bottom: 0; }
+.gas-rank { width: 28px; height: 28px; border-radius: 50%; background: var(--bg-subtle); display: grid; place-items: center; font-weight: 800; font-size: 0.85rem; }
+.gas-list li:first-child .gas-rank { background: var(--primary); color: #fff; }
+.gas-name { display: flex; flex-direction: column; font-weight: 700; min-width: 0; overflow-wrap: anywhere; }
+.gas-price { font-size: 1.15rem; font-weight: 800; white-space: nowrap; }
+
+/* 아파트 */
+.apt-sub { color: var(--text-body); font-weight: 600; }
+.apt-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.apt-area { text-align: left; border: 1px solid var(--border-color); background: var(--bg-subtle); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
+.apt-area strong { font-size: 1.3rem; }
+.apt-area-size { font-weight: 700; color: var(--text-body); }
+.apt-area-on { border-color: var(--primary); background: var(--primary-soft); box-shadow: inset 0 0 0 1px var(--primary); }
+.apt-table { width: 100%; border-collapse: collapse; }
+.apt-table th { text-align: left; font-size: 0.85rem; color: var(--text-sub); font-weight: 600; padding: 8px 6px; border-bottom: 2px solid var(--border-color); }
+.apt-table td { padding: 10px 6px; border-bottom: 1px solid var(--border-color); }
+.apt-table .num { text-align: right; font-weight: 700; }
+.apt-canceled td { color: var(--text-sub); text-decoration: line-through; }
+.apt-canceled small { text-decoration: none; display: inline-block; }
+
+.app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
+
+@media (max-width: 640px) {
+  :root { font-size: 17px; }
+  .app { padding: 14px 12px 32px; }
+  .app-header { flex-direction: column-reverse; gap: 4px; }
+  .clock { text-align: left; display: flex; gap: 10px; align-items: baseline; }
+  .clock-time { font-size: 1.2rem; }
+  .grid { grid-template-columns: 1fr; }
+  .card { padding: 16px; }
+  .weather-now { grid-template-columns: auto 1fr; }
+  .weather-facts { grid-column: 1 / -1; justify-self: stretch; grid-template-columns: 1fr 1fr; background: var(--bg-subtle); border-radius: var(--radius-md); padding: 10px 12px; }
+  .gas-list li { grid-template-columns: 28px 1fr auto; }
+  .gas-list li .btn { grid-column: 2 / -1; justify-self: start; }
+  .apt-table th:nth-child(3), .apt-table td:nth-child(3) { display: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton { animation: none; }
+}
