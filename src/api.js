@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 
-export class FetchError extends Error {
-  constructor(message, code) { super(message); this.code = code; }
-}
+import { FetchError } from './sources.js';
+
+export { fetchStations, fetchArrivals, fetchGas, fetchApt } from './sources.js';
 
 export async function getJSON(url) {
   let res;
@@ -43,11 +43,6 @@ export async function reverseGeocode({ lat, lng }) {
   return [j.city, j.locality].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' ') || j.principalSubdivision || '';
 }
 
-// 키가 필요한 것은 우리 서버(/api)를 거친다
-export const fetchStations = ({ lat, lng }) => getJSON(`/api/bus/stations?lat=${lat}&lng=${lng}`);
-export const fetchArrivals = (stationId) => getJSON(`/api/bus/arrivals?stationId=${encodeURIComponent(stationId)}`);
-export const fetchGas = ({ lat, lng }, fuel, radius) => getJSON(`/api/gas?lat=${lat}&lng=${lng}&fuel=${fuel}&radius=${radius}`);
-export const fetchApt = () => getJSON('/api/apt');
 
 // 불러오기 + (선택) 주기적 새로고침. 새로고침 중에는 이전 값을 그대로 보여 준다.
 export function useFetch(fn, deps, { interval = 0, enabled = true } = {}) {

@@ -1,8 +1,21 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 
-// 개발 중에는 다른 터미널에서 `npm run server`(포트 8787)를 켜 두면 /api 를 그쪽으로 넘긴다.
+// 공공 API 는 브라우저에서 바로 부를 수 없어서(CORS) /api/* 로 부르고 원래 주소로 넘긴다.
+// 배포(Render 정적 사이트)는 render.yaml 의 rewrite 가 같은 일을 한다. 둘을 같이 고칠 것.
+const relay = (target, prefix) => ({
+  target,
+  changeOrigin: true,
+  rewrite: (p) => p.replace(prefix, ''),
+});
+const proxy = {
+  '/api/gbis': relay('https://apis.data.go.kr/6410000', /^\/api\/gbis/),
+  '/api/rtms': relay('https://apis.data.go.kr/1613000', /^\/api\/rtms/),
+  '/api/opinet': relay('https://www.opinet.co.kr/api', /^\/api\/opinet/),
+};
+
 export default defineConfig({
   plugins: [react()],
-  server: { proxy: { '/api': 'http://localhost:8787' } }
+  server: { proxy },
+  preview: { proxy },
 });

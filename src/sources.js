@@ -1,0 +1,252 @@
+// 키가 필요한 공공 API 를 브라우저에서 부른다.
+// 브라우저가 직접 부르면 CORS 로 막히므로 같은 주소의 /api/* 로 부르고,
+// 배포에서는 Render rewrite(render.yaml), 개발에서는 Vite proxy(vite.config.js)가 원래 주소로 넘긴다.
+//   /api/gbis/*   → https://apis.data.go.kr/6410000/*   (경기도 버스)
+//   /api/rtms/*   → https://apis.data.go.kr/1613000/*   (국토부 실거래가)
+//   /api/opinet/* → https://www.opinet.co.kr/api/*     (오피넷)
+// 키는 빌드할 때 환경변수(VITE_DATA_GO_KR_KEY, VITE_OPINET_KEY)로 들어와 화면 코드에 포함된다.
+// 정적 사이트라 숨길 수 없으므로, 문제가 생기면 키를 재발급하면 된다.
+
+export class FetchError extends Error {
+  constructor(message, code) { super(message); this.code = code; }
+}
+const needKey = (name) => new FetchError(`${name} 키가 설정되지 않았어요`, 'NO_KEY');
+
+// 공공데이터포털은 '인코딩' 키와 '디코딩' 키를 준다. 어느 쪽을 넣어도 되게 디코딩 키로 맞춘다.
+function dataKey() {
+  const k = (import.meta.env.VITE_DATA_GO_KR_KEY || '').trim();
+  if (!k) return '';
+  try { return k.includes('%') ? decodeURIComponent(k) : k; } catch { return k; }
+}
+const opinetKey = () => (import.meta.env.VITE_OPINET_KEY || '').trim();
+
+// ---------- 캐시: 메모리 + (오래 둘 것은) localStorage ----------
+const mem = new Map();
+async function cached(key, ttlMs, fn, { persist = false } = {}) {
+  const hit = mem.get(key);
+  if (hit && Date.now() - hit.t < ttlMs) return hit.v;
+  if (hit?.p) return hit.p;
+  if (persist) {
+    try {
+      const s = JSON.parse(localStorage.getItem(`pd_cache:${key}`) || 'null');
+      if (s && Date.now() - s.t < ttlMs) { mem.set(key, s); return s.v; }
+    } catch { /* 저장소를 못 써도 괜찮음 */ }
+  }
+  const p = fn();
+  mem.set(key, { ...hit, p });
+  try {
+    const v = await p;
+    const entry = { t: Date.now(), v };
+    mem.set(key, entry);
+    if (persist) { try { localStorage.setItem(`pd_cache:${key}`, JSON.stringify(entry)); } catch { /* 가득 참 */ } }
+    return v;
+  } catch (e) {
+    if (hit?.v !== undefined) mem.set(key, hit); else mem.delete(key);
+    throw e;
+  }
+}
+
+async function getText(url) {
+  let res;
+  try {
+    res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+  } catch {
+    throw new FetchError('인터넷 연결을 확인해 주세요', 'NETWORK');
+  }
+  const text = await res.text();
+  if (res.status === 401 || res.status === 403) throw new FetchError('API 키가 거절됐어요(활용신청 승인 대기 중이거나 잘못된 키)', 'BAD_KEY');
+  if (!res.ok) throw new FetchError(`정보 제공처 오류 (${res.status})`);
+  // 개발 서버에 중계 설정이 없거나 배포 rewrite 가 빠지면 우리 index.html 이 돌아온다
+  if (/^\s*<!doctype html/i.test(text)) throw new FetchError('중계 설정이 빠졌어요(render.yaml rewrite 확인)', 'SETUP');
+  return text;
+}
+
+// ---------- XML 을 객체 목록으로 (공공데이터 API 는 XML 로만 답하는 것이 있음) ----------
+const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'" };
+const unent = (s) => s.replace(/&(#\d+|amp|lt|gt|quot|apos);/g, (_, e) => (e[0] === '#' ? String.fromCharCode(+e.slice(1)) : ENT[e]));
+function xmlItems(xml, tag) {
+  const out = [];
+  const re = new RegExp(`<${tag}>([\\s\\S]*?)</${tag}>`, 'g');
+  let m;
+  while ((m = re.exec(xml))) {
+    const obj = {};
+    for (const f of m[1].matchAll(/<([A-Za-z0-9_가-힣]+)>([^<]*)<\/\1>/g)) obj[f[1]] = unent(f[2]).trim();
+    out.push(obj);
+  }
+  return out;
+}
+const xmlValue = (xml, tag) => xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1]?.trim();
+
+// 공공데이터포털 공통 오류(키 문제 등)를 사람이 읽을 말로
+function checkGatewayError(text) {
+  const reason = xmlValue(text, 'returnReasonCode') || text.match(/"returnReasonCode"\s*:\s*"(\d+)"/)?.[1];
+  if (!reason) return;
+  const msg = {
+    30: '등록되지 않은 서비스키예요(이 API 활용신청이 아직 승인 전일 수 있어요)',
+    20: '이 API 에 대한 활용신청이 없어요',
+    22: '오늘 사용할 수 있는 횟수를 다 썼어요',
+    31: '활용 기간이 끝난 키예요',
+  }[reason] || `공공데이터포털 오류 (${reason})`;
+  throw new FetchError(msg, reason === '22' ? 'LIMIT' : 'BAD_KEY');
+}
+
+const toArr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
+
+// 경기버스 v2 응답: JSON 이면 response.msgBody[listName], 아니면 XML
+function gbisList(text, listName) {
+  checkGatewayError(text);
+  const t = text.trim();
+  if (t.startsWith('{')) {
+    const j = JSON.parse(t);
+    const r = j.response || j;
+    const code = String(r.msgHeader?.resultCode ?? '0');
+    if (code === '4') return []; // 결과 없음
+    if (code !== '0') throw new FetchError(r.msgHeader?.resultMessage || `버스 정보 오류 (${code})`);
+    return toArr(r.msgBody?.[listName]);
+  }
+  const code = xmlValue(t, 'resultCode');
+  if (code === '4') return [];
+  if (code && code !== '0') throw new FetchError(xmlValue(t, 'resultMessage') || `버스 정보 오류 (${code})`);
+  return xmlItems(t, listName);
+}
+
+// ---------- 버스 (경기도 버스정보) ----------
+export function fetchStations({ lat, lng }) {
+  const key = dataKey();
+  if (!key) return Promise.reject(needKey('공공데이터포털'));
+  return cached(`st:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
+    const q = new URLSearchParams({ serviceKey: key, x: String(lng), y: String(lat), format: 'json' });
+    const list = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationAroundListv2?${q}`), 'busStationAroundList');
+    return list
+      .map((s) => ({
+        id: String(s.stationId),
+        name: s.stationName,
+        no: s.mobileNo ? String(s.mobileNo).trim() : '',
+        region: s.regionName || '',
+        distance: num(s.distance),
+      }))
+      .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
+      .slice(0, 6);
+  }, { persist: true });
+}
+
+export function fetchArrivals(stationId) {
+  const key = dataKey();
+  if (!key) return Promise.reject(needKey('공공데이터포털'));
+  return cached(`arr:${stationId}`, 20e3, async () => {
+    const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
+    const list = gbisList(await getText(`/api/gbis/busarrivalservice/v2/getBusArrivalListv2?${q}`), 'busArrivalList');
+    const seat = (v) => (num(v) == null || num(v) < 0 ? null : num(v));
+    return list
+      .map((b) => ({
+        routeId: String(b.routeId),
+        route: b.routeName ? String(b.routeName) : String(b.routeId),
+        dest: b.routeDestName || '',
+        min1: num(b.predictTime1),
+        min2: num(b.predictTime2),
+        stops1: num(b.locationNo1),
+        seats1: seat(b.remainSeatCnt1),
+      }))
+      .sort((a, b) => (a.min1 ?? 999) - (b.min1 ?? 999));
+  });
+}
+
+// ---------- 주유소 (오피넷, 좌표는 KATEC) ----------
+const KATEC = '+proj=tmerc +lat_0=38 +lon_0=128 +k=0.9999 +x_0=400000 +y_0=600000 +ellps=bessel +units=m +no_defs +towgs84=-115.80,474.99,674.11,1.16,-2.31,-1.63,6.43';
+const BRANDS = {
+  SKE: 'SK에너지', GSC: 'GS칼텍스', HDO: 'HD현대오일뱅크', SOL: 'S-OIL', RTE: '알뜰주유소', RTX: '고속도로 알뜰',
+  NHO: '농협 알뜰', ETC: '자가상표', E1G: 'E1', SKG: 'SK가스',
+};
+const FUELS = { gasoline: 'B027', diesel: 'D047', premium: 'B034', lpg: 'K015' };
+
+export function fetchGas({ lat, lng }, fuel, radius) {
+  const key = opinetKey();
+  if (!key) return Promise.reject(needKey('오피넷'));
+  const prodcd = FUELS[fuel] || FUELS.gasoline;
+  const r = Math.min(5000, Math.max(1000, radius || 3000));
+  return cached(`gas:${lat.toFixed(3)},${lng.toFixed(3)}:${prodcd}:${r}`, 30 * 60e3, async () => {
+    const { default: proj4 } = await import('proj4'); // 주유소 카드에서만 쓰므로 따로 불러옴
+    const [x, y] = proj4('WGS84', KATEC, [lng, lat]);
+    const q = new URLSearchParams({ code: key, x: x.toFixed(1), y: y.toFixed(1), radius: String(r), sort: '1', prodcd, out: 'json' });
+    const text = await getText(`/api/opinet/aroundAll.do?${q}`);
+    let j;
+    try { j = JSON.parse(text); } catch {
+      throw new FetchError('오피넷 응답을 읽지 못했어요(키를 확인해 주세요)', 'BAD_KEY');
+    }
+    return toArr(j?.RESULT?.OIL)
+      .map((o) => {
+        const [glng, glat] = proj4(KATEC, 'WGS84', [Number(o.GIS_X_COOR), Number(o.GIS_Y_COOR)]);
+        const brand = o.POLL_DIV_CD || o.POLL_DIV_CO || '';
+        return { id: o.UNI_ID, name: o.OS_NM, brand: BRANDS[brand] || brand, price: num(o.PRICE), distance: num(o.DISTANCE), lat: glat, lng: glng };
+      })
+      .filter((o) => o.price > 0)
+      .sort((a, b) => a.price - b.price || (a.distance ?? 0) - (b.distance ?? 0));
+  }, { persist: true });
+}
+
+// ---------- 아파트 매매 실거래가 (국토교통부) ----------
+const APT = { lawd: '41410', dong: '산본동', keywords: ['소월', '삼익'] }; // 군포시 산본동 삼익소월
+
+function recentMonths(n) {
+  const now = new Date(Date.now() + 9 * 3600e3); // 한국 시간
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - i, 1));
+    out.push(`${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`);
+  }
+  return out;
+}
+
+// 한 달치를 받아 이 동네·이 단지 이름에 걸리는 줄만 남겨 저장(지난달 이전은 하루, 최근 두 달은 3시간)
+function aptMonth(key, ym, isRecent) {
+  return cached(`apt:${APT.lawd}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
+    const rows = [];
+    for (let page = 1; page <= 5; page++) {
+      const q = new URLSearchParams({ serviceKey: key, LAWD_CD: APT.lawd, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });
+      const text = await getText(`/api/rtms/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade?${q}`);
+      checkGatewayError(text);
+      const code = xmlValue(text, 'resultCode');
+      if (code && !['00', '000', '0'].includes(code)) throw new FetchError(xmlValue(text, 'resultMsg') || `실거래가 오류 (${code})`);
+      const items = xmlItems(text, 'item');
+      rows.push(...items);
+      const total = Number(xmlValue(text, 'totalCount') || 0);
+      if (rows.length >= total || items.length === 0) break;
+    }
+    const dongWord = APT.dong.replace(/동$/, '');
+    return rows
+      .map((r) => ({
+        name: r.aptNm ?? r['아파트'] ?? '',
+        dong: (r.umdNm ?? r['법정동'] ?? '').trim(),
+        amount: Number(String(r.dealAmount ?? r['거래금액'] ?? '').replace(/[,\s]/g, '')) || null, // 만원
+        year: Number(r.dealYear ?? r['년']),
+        month: Number(r.dealMonth ?? r['월']),
+        day: Number(r.dealDay ?? r['일']),
+        area: num(r.excluUseAr ?? r['전용면적']),
+        floor: num(r.floor ?? r['층']),
+        canceled: (r.cdealType ?? r['해제여부'] ?? '').trim() === 'O',
+        kind: (r.dealingGbn ?? '').trim(), // 중개거래 / 직거래
+      }))
+      .filter((t) => t.dong.includes(dongWord) && APT.keywords.some((k) => t.name.includes(k)));
+  }, { persist: true });
+}
+
+export async function fetchApt() {
+  const key = dataKey();
+  if (!key) throw needKey('공공데이터포털');
+  const months = recentMonths(13);
+  const monthly = await Promise.all(months.map((ym, i) => aptMonth(key, ym, i < 2)));
+  const near = monthly.flat();
+  const pick = near.filter((t) => APT.keywords.every((k) => t.name.includes(k)));
+  const trades = pick
+    .map((t) => ({ ...t, date: `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` }))
+    .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
+  return {
+    complex: trades[0]?.name || APT.keywords.join(' '),
+    dong: APT.dong,
+    from: months.at(-1),
+    to: months[0],
+    trades,
+    candidates: trades.length ? [] : [...new Set(near.map((t) => t.name))],
+  };
+}
