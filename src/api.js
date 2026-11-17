@@ -43,6 +43,35 @@ export async function reverseGeocode({ lat, lng }) {
   return [j.city, j.locality].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(' ') || j.principalSubdivision || '';
 }
 
+// 장소·주소 검색 (OpenStreetMap Nominatim, 키 없음. 이용 규칙: 1초에 한 번 이하, 입력할 때마다 찾지 말 것)
+export async function searchPlaces(text) {
+  const q = new URLSearchParams({
+    q: text, format: 'jsonv2', countrycodes: 'kr', 'accept-language': 'ko', addressdetails: '1', limit: '6',
+  });
+  const list = await getJSON(`https://nominatim.openstreetmap.org/search?${q}`);
+  const seen = new Set();
+  return list
+    .map((r) => {
+      const a = r.address || {};
+      const area = [a.province || a.state, a.city || a.county, a.borough, a.suburb || a.quarter || a.village || a.town]
+        .filter(Boolean)
+        .filter((v, i, arr) => arr.indexOf(v) === i)
+        .join(' ');
+      const name = r.name || r.display_name.split(',')[0];
+      return {
+        lat: Math.round(Number(r.lat) * 10000) / 10000,
+        lng: Math.round(Number(r.lon) * 10000) / 10000,
+        name,
+        detail: area || r.display_name,
+      };
+    })
+    .filter((p) => {
+      const k = `${p.name}|${p.detail}`;
+      if (seen.has(k)) return false;
+      seen.add(k);
+      return true;
+    });
+}
 
 // 불러오기 + (선택) 주기적 새로고침. 새로고침 중에는 이전 값을 그대로 보여 준다.
 export function useFetch(fn, deps, { interval = 0, enabled = true } = {}) {
