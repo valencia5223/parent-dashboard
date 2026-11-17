@@ -15,6 +15,30 @@ const dateText = (d) => `${Number(d.slice(2, 4))}.${Number(d.slice(5, 7))}.${Num
 // 면적은 소수점이 조금씩 달라도 같은 평형으로 묶는다
 const areaKey = (m2) => Math.round(m2);
 
+// 'YYYY-MM-DD' 에서 n일 전 날짜
+const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
+const avg = (list) => list.reduce((s, t) => s + t.amount, 0) / list.length;
+// 1년 전 대비: 이 평형의 최근 거래일 기준 3개월 평균 ↔ 1년 전 같은 3개월 평균. 어느 쪽이든 거래가 없으면 null
+function yearChange(trades) {
+  if (!trades.length) return null;
+  const last = trades[0].date; // 최신순
+  const recent = trades.filter((t) => t.date > daysBefore(last, 90));
+  const base = trades.filter((t) => t.date <= daysBefore(last, 365) && t.date > daysBefore(last, 455));
+  if (!recent.length || !base.length) return null;
+  return { pct: ((avg(recent) - avg(base)) / avg(base)) * 100, base: Math.round(avg(base)), n: base.length };
+}
+function Change({ c }) {
+  if (!c) return <small className="apt-change">1년 전 같은 때 거래 없음</small>;
+  const p = Math.round(c.pct * 10) / 10;
+  const cls = p > 0 ? 'up' : p < 0 ? 'down' : 'flat';
+  const sign = p > 0 ? '▲' : p < 0 ? '▼' : '';
+  return (
+    <small className={`apt-change apt-change-${cls}`} title={`1년 전 같은 3개월 평균 ${price(c.base)} (${c.n}건)과 최근 3개월 평균 비교`}>
+      1년 전보다 <b>{sign} {Math.abs(p).toFixed(1)}%</b>
+    </small>
+  );
+}
+
 const saved = () => { try { return localStorage.getItem('pd_apt'); } catch { return null; } };
 
 export default function AptCard() {
@@ -43,8 +67,12 @@ export default function AptCard() {
 function AptBody({ apt }) {
   const [area, setArea] = useState('all');
   const [more, setMore] = useState(false);
-  const valid = useMemo(() => apt.trades.filter((t) => !t.canceled), [apt.trades]);
+  // 화면에 보여 주는 것은 최근 13개월, 변화율 계산에는 더 오래된 거래까지 쓴다
+  const since = `${apt.from.slice(0, 4)}-${apt.from.slice(4)}-01`;
+  const recentAll = useMemo(() => apt.trades.filter((t) => t.date >= since), [apt.trades, since]);
+  const valid = useMemo(() => recentAll.filter((t) => !t.canceled), [recentAll]);
   const areas = useMemo(() => {
+    const ok = apt.trades.filter((t) => !t.canceled && t.amount);
     const m = new Map();
     for (const t of valid) {
       const k = areaKey(t.area);
@@ -52,10 +80,11 @@ function AptBody({ apt }) {
       g.count += 1;
       m.set(k, g);
     }
+    for (const g of m.values()) g.change = yearChange(ok.filter((t) => areaKey(t.area) === g.key));
     return [...m.values()].sort((a, b) => a.key - b.key);
-  }, [valid]);
+  }, [valid, apt.trades]);
 
-  if (apt.trades.length === 0) {
+  if (recentAll.length === 0) {
     return (
       <div className="empty">
         <p>최근 1년({apt.from.slice(0, 4)}.{apt.from.slice(4)} ~ {apt.to.slice(0, 4)}.{apt.to.slice(4)}) {apt.dong} 거래가 없어요.</p>
@@ -63,7 +92,7 @@ function AptBody({ apt }) {
     );
   }
 
-  const shown = apt.trades.filter((t) => area === 'all' || areaKey(t.area) === area);
+  const shown = recentAll.filter((t) => area === 'all' || areaKey(t.area) === area);
   const list = more ? shown : shown.slice(0, 8);
 
   return (
@@ -81,6 +110,7 @@ function AptBody({ apt }) {
             <span className="apt-area-size">전용 {g.area}㎡ <small>({pyeong(g.area)})</small></span>
             <strong>{price(g.latest.amount)}</strong>
             <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층 · 1년 {g.count}건</small>
+            <Change c={g.change} />
           </button>
         ))}
       </div>

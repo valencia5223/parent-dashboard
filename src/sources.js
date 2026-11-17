@@ -248,11 +248,12 @@ export async function fetchApt(id) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
   const apt = APTS.find((a) => a.id === id) || APTS[0];
-  const months = recentMonths(13);
+  // 화면 목록은 최근 13개월, 1년 전 대비 변화를 구하려고 3개월 더(16개월) 받는다
+  const months = recentMonths(16);
   const monthly = await Promise.all(months.map((ym, i) => aptMonth(key, ym, i < 2)));
   const trades = monthly.flat()
     .filter((t) => t.apt === apt.id)
     .map((t) => ({ ...t, date: `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` }))
     .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
-  return { id: apt.id, label: apt.label, dong: apt.dong, from: months.at(-1), to: months[0], trades };
+  return { id: apt.id, label: apt.label, dong: apt.dong, from: months[12], to: months[0], trades };
 }
