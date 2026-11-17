@@ -287,10 +287,10 @@ export function fetchPharmacies({ lat, lng }) {
   }, { persist: true });
 }
 
-// 가까운 응급실 + 실시간 남은 병상(hvec, 병원이 입력한 값. 0 이하면 꽉 참)
+// 가까운 응급실(20km 안 최대 12곳, 화면은 5곳 + 더 보기) + 실시간 남은 병상(hvec, 병원이 입력한 값. 0 이하면 꽉 참)
 export function fetchEmergency({ lat, lng }) {
   return cached(`er:${lat.toFixed(3)},${lng.toFixed(3)}`, 3 * 60e3, async () => {
-    const list = (await nmcItems('/ErmctInfoInqireService/getEgytLcinfoInqire', { WGS84_LON: String(lng), WGS84_LAT: String(lat), numOfRows: '6' }))
+    const list = (await nmcItems('/ErmctInfoInqireService/getEgytLcinfoInqire', { WGS84_LON: String(lng), WGS84_LAT: String(lat), numOfRows: '12' }))
       .filter((o) => num(o.distance) == null || num(o.distance) <= 20);
     // 병상은 시도 단위로 한 번에 받아 병원 id 로 맞춘다(경기도 약 70곳)
     const stages = [...new Set(list.map((o) => (o.dutyAddr || '').split(' ')[0]).filter(Boolean))];

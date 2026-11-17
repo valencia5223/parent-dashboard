@@ -100,16 +100,21 @@ const bedTime = (v) => (v.length >= 12 ? `${Number(v.slice(8, 10))}:${v.slice(10
 
 function Emergency({ pos }) {
   const state = useFetch(() => fetchEmergency(pos), [pos.lat, pos.lng], { interval: 3 * 60e3 });
+  const [all, setAll] = useState(false);
   return (
     <>
-      <a className="btn btn-119" href="tel:119">📞 위급하면 119</a>
+      {/* 스크롤하다 잘못 눌리지 않게 작게, 한 줄 오른쪽에 */}
+      <p className="er-119">
+        <span>위급할 때는 119 에 먼저</span>
+        <a className="btn btn-sm btn-119" href="tel:119" aria-label="119 에 전화">📞 119</a>
+      </p>
       <Body state={state} lines={4}>
         {(list) => (list.length === 0 ? (
-          <p className="empty">가까운 응급실을 찾지 못했어요</p>
+          <p className="empty">20km 안에서 응급실을 찾지 못했어요</p>
         ) : (
           <>
             <ul className="med-list">
-              {list.slice(0, 4).map((o) => {
+              {(all ? list : list.slice(0, SHOW)).map((o) => {
                 const lv = bedLevel(o.beds);
                 return (
                   <li key={o.id}>
@@ -126,6 +131,11 @@ function Emergency({ pos }) {
                 );
               })}
             </ul>
+            {list.length > SHOW && (
+              <button type="button" className="btn btn-block" onClick={() => setAll(!all)} aria-expanded={all}>
+                {all ? '접기' : `응급실 ${list.length - SHOW}곳 더 보기`}
+              </button>
+            )}
             <p className="card-foot">남은 병상은 병원이 입력한 참고값이에요(3분마다 새로 고침). 위급하면 119 에 먼저 전화하세요.</p>
           </>
         ))}
