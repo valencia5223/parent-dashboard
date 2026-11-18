@@ -1,8 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { reverseGeocode } from './api.js';
 import WeatherCard from './components/WeatherCard.jsx';
-import BusCard from './components/BusCard.jsx';
-import SubwayCard from './components/SubwayCard.jsx';
+import TransitCard from './components/TransitCard.jsx';
 import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
@@ -162,8 +161,7 @@ export default function App() {
       {pos ? (
         <main className="grid" key={refreshKey}>
           <WeatherCard pos={pos} />
-          <BusCard pos={pos} />
-          <SubwayCard pos={pos} />
+          <TransitCard pos={pos} />
           <GasCard pos={pos} />
           <AptCard />
           <HealthCard pos={pos} />

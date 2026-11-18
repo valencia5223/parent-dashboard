@@ -401,32 +401,23 @@ export async function fetchKidsClinics(pos) {
     .sort((a, b) => a.distance - b.distance);
 }
 
-// ---------- 지하철 (가까운 역: OpenStreetMap Overpass, 실시간 도착: 서울 열린데이터광장) ----------
+// ---------- 지하철 (가까운 역: 앱에 넣어 둔 수도권 역 목록, 실시간 도착: 서울 열린데이터광장) ----------
 // 서울 API 는 http 만 되어 https 사이트에서 바로 못 부른다 → /api/subway 중계(render.yaml rewrite·vite proxy).
 // 키는 서울 열린데이터광장 '실시간 지하철' 인증키(VITE_SEOUL_SUBWAY_KEY, 공공데이터포털 키와 다름).
+// 역 위치(src/subwayStations.json, [이름, 위도, 경도] 약 600곳)는 OpenStreetMap 에서 한 번 뽑아 넣었다.
+// Overpass 를 화면에서 부르면 자주 '용량 초과'·406 으로 실패해서다. 새 역이 생기면 다시 뽑을 것.
 const subwayKey = () => (import.meta.env.VITE_SEOUL_SUBWAY_KEY || '').trim();
 
-// 반경 3km 안 지하철역(역 이름은 서울 API 의 statnNm 과 같게 '역' 을 뗀 이름). 역 위치는 잘 안 바뀌어 30일 보관
-export function fetchSubwayStations({ lat, lng }) {
-  return cached(`subst:${lat.toFixed(3)},${lng.toFixed(3)}`, 30 * 864e5, async () => {
-    const q = `[out:json][timeout:20];node["railway"="station"]["station"="subway"](around:3000,${lat},${lng});out;`;
-    let res;
-    try {
-      res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: new URLSearchParams({ data: q }), signal: AbortSignal.timeout(25000) });
-    } catch {
-      throw new FetchError('역 위치를 찾지 못했어요(인터넷 연결 확인)', 'NETWORK');
-    }
-    if (!res.ok) throw new FetchError(`역 위치 정보 오류 (${res.status})`);
-    const j = await res.json();
-    const seen = new Set();
-    return (j.elements || [])
-      .map((e) => ({ name: String(e.tags?.['name:ko'] || e.tags?.name || '').replace(/역$/, '').trim(), lat: e.lat, lng: e.lon }))
-      .filter((s) => s.name)
-      .map((s) => ({ ...s, distance: Math.round(distKm({ lat, lng }, s) * 1000) }))
-      .sort((a, b) => a.distance - b.distance)
-      .filter((s) => !seen.has(s.name) && seen.add(s.name))
-      .slice(0, 4);
-  }, { persist: true });
+// 반경 3km 안 지하철역(이름은 서울 API 의 statnNm 처럼 '역' 을 뗀 이름), 가까운 4곳
+export async function fetchSubwayStations({ lat, lng }) {
+  const { default: all } = await import('./subwayStations.json'); // 지하철 탭을 열 때만 불러옴
+  const seen = new Set();
+  return all
+    .map(([name, la, lo]) => ({ name, lat: la, lng: lo, distance: Math.round(distKm({ lat, lng }, { lat: la, lng: lo }) * 1000) }))
+    .filter((s) => s.distance <= 3000)
+    .sort((a, b) => a.distance - b.distance)
+    .filter((s) => !seen.has(s.name) && seen.add(s.name))
+    .slice(0, 4);
 }
 
 export const SUBWAY_LINES = {

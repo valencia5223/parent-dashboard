@@ -47,7 +47,7 @@ export default function AptCard() {
   const pick = (v) => { setId(v); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
 
   return (
-    <Card title="아파트 실거래가" icon="🏠" state={state} onRefresh={state.reload} wide>
+    <Card title="아파트 실거래가" icon="🏠" state={state} onRefresh={state.reload}>
       <div className="chips" role="tablist" aria-label="단지 고르기">
         {APTS.map((a) => (
           <button key={a.id} type="button" role="tab" aria-selected={id === a.id} className={`chip${id === a.id ? ' chip-on' : ''}`} onClick={() => pick(a.id)}>

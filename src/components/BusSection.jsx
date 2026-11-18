@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchArrivals, fetchStations, useFetch } from '../api.js';
-import Card, { Body, Loading, ErrorBox } from './Card.jsx';
+import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const SHOW = 5; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
@@ -53,7 +53,8 @@ function Arrivals({ station }) {
   );
 }
 
-export default function BusCard({ pos }) {
+// 버스·지하철 카드(TransitCard)의 '버스' 탭
+export default function BusSection({ pos }) {
   const stations = useFetch(() => fetchStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
 
@@ -61,7 +62,6 @@ export default function BusCard({ pos }) {
   useEffect(() => { setPicked(null); }, [pos.lat, pos.lng]);
 
   return (
-    <Card title="가까운 버스 정류장" icon="🚌" onRefresh={stations.reload}>
       <Body state={stations} lines={4}>
         {(list) => {
           if (list.length === 0) return <p className="empty">주변 500m 안에 정류장을 찾지 못했어요</p>;
@@ -88,6 +88,5 @@ export default function BusCard({ pos }) {
           );
         }}
       </Body>
-    </Card>
   );
 }

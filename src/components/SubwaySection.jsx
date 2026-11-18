@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchSubwayArrivals, fetchSubwayStations, SUBWAY_LINES, useFetch } from '../api.js';
-import Card, { Body, Loading, ErrorBox } from './Card.jsx';
+import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const ARRIVED = { 0: '진입 중', 1: '도착', 2: '출발' };
 
@@ -65,13 +65,13 @@ function Arrivals({ station }) {
   );
 }
 
-export default function SubwayCard({ pos }) {
+// 버스·지하철 카드(TransitCard)의 '지하철' 탭
+export default function SubwaySection({ pos }) {
   const stations = useFetch(() => fetchSubwayStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
   useEffect(() => { setPicked(null); }, [pos.lat, pos.lng]);
 
   return (
-    <Card title="가까운 지하철역" icon="🚇" onRefresh={stations.reload}>
       <Body state={stations} lines={3}>
         {(list) => {
           if (list.length === 0) return <p className="empty">3km 안에 지하철역이 없어요</p>;
@@ -98,6 +98,5 @@ export default function SubwayCard({ pos }) {
           );
         }}
       </Body>
-    </Card>
   );
 }
