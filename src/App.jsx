@@ -89,6 +89,17 @@ function useLocation() {
   return { pos, status, label, recent, gpsError, locate, pick, removeRecent };
 }
 
+// 핸드폰에서는 아래쪽 탭 바로 카드를 하나씩 본다(PC 는 모두 보임). 고른 탭은 이 기기에 기억한다.
+// 다른 카드도 숨겨진 채 계속 정보를 받아 두어서 탭을 누르면 바로 보인다.
+const CARD_TABS = [
+  { id: 'weather', label: '날씨', icon: '🌡️' },
+  { id: 'transit', label: '교통', icon: '🚏' },
+  { id: 'gas', label: '주유', icon: '⛽' },
+  { id: 'apt', label: '집값', icon: '🏠' },
+  { id: 'health', label: '병원', icon: '💊' },
+];
+const MTAB_KEY = 'pd_mtab';
+
 // 조준점 모양 '현재 위치' 아이콘
 function LocateIcon() {
   return (
@@ -121,6 +132,16 @@ export default function App() {
   const { pos, status, label, recent, gpsError, locate, pick, removeRecent } = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
   const [picking, setPicking] = useState(false);
+  const [mtab, setMtab] = useState(() => {
+    const v = load(MTAB_KEY, 'weather');
+    return CARD_TABS.some((t) => t.id === v) ? v : 'weather';
+  });
+  const pickTab = (id) => {
+    setMtab(id);
+    store(MTAB_KEY, id);
+    window.scrollTo({ top: 0 });
+  };
+  const slot = (id) => `slot${mtab === id ? ' slot-on' : ''}`;
 
   let where;
   if (status === 'finding') where = '현재 위치를 찾는 중…';
@@ -160,17 +181,28 @@ export default function App() {
 
       {pos ? (
         <main className="grid" key={refreshKey}>
-          <WeatherCard pos={pos} />
-          <TransitCard pos={pos} />
-          <GasCard pos={pos} />
-          <AptCard />
-          <HealthCard pos={pos} />
+          <div className={slot('weather')}><WeatherCard pos={pos} /></div>
+          <div className={slot('transit')}><TransitCard pos={pos} /></div>
+          <div className={slot('gas')}><GasCard pos={pos} /></div>
+          <div className={slot('apt')}><AptCard /></div>
+          <div className={slot('health')}><HealthCard pos={pos} /></div>
         </main>
       ) : (
         <div className="empty big">
           <p>위치를 확인하고 있어요. 위치 사용을 묻는 창이 뜨면 &lsquo;허용&rsquo;을 눌러 주세요.</p>
           <button type="button" className="btn" onClick={() => setPicking(true)}>직접 위치 고르기</button>
         </div>
+      )}
+
+      {pos && (
+        <nav className="mobile-tabbar" aria-label="카드 고르기">
+          {CARD_TABS.map((t) => (
+            <button key={t.id} type="button" className={mtab === t.id ? 'on' : ''} onClick={() => pickTab(t.id)} aria-current={mtab === t.id ? 'page' : undefined}>
+              <span className="mtab-icon" aria-hidden>{t.icon}</span>
+              <span className="mtab-label">{t.label}</span>
+            </button>
+          ))}
+        </nav>
       )}
 
       <footer className="app-foot">

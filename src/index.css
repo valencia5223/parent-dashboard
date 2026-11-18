@@ -330,9 +330,31 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .place-item:hover { background: var(--bg-subtle); }
 .place-on { border-color: var(--primary); background: var(--primary-soft); }
 
+/* 카드 자리: PC 에서는 없는 것처럼(display: contents) 격자에 그대로 놓이고, 핸드폰에서는 고른 것만 보인다 */
+.slot { display: contents; }
+.mobile-tabbar { display: none; }
 .app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 640px) {
+  /* 아래쪽 탭 바: 한 번에 카드 하나 */
+  .slot { display: none; }
+  .slot.slot-on { display: block; }
+  .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
+  .mobile-tabbar {
+    display: grid; grid-template-columns: repeat(5, 1fr);
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+    background: var(--bg-card); border-top: 1px solid var(--border-color);
+    padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+    box-shadow: 0 -4px 16px rgba(15, 23, 42, 0.06);
+  }
+  .mobile-tabbar button {
+    border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    padding: 6px 0; min-height: 56px; border-radius: var(--radius-md); color: var(--text-sub); font: inherit; cursor: pointer;
+  }
+  .mobile-tabbar .mtab-icon { font-size: 1.45rem; line-height: 1; filter: grayscale(0.6); opacity: 0.75; }
+  .mobile-tabbar .mtab-label { font-size: 0.8rem; font-weight: 700; }
+  .mobile-tabbar button.on { color: var(--primary); background: var(--primary-soft); }
+  .mobile-tabbar button.on .mtab-icon { filter: none; opacity: 1; }
   /* 약국·응급실: 핸드폰에서는 전화·길찾기 버튼을 작게 */
   .med-actions .btn { min-height: 34px; padding: 0 10px; font-size: 0.82rem; }
   :root { font-size: 17px; }
