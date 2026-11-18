@@ -13,8 +13,8 @@ const proxy = {
   '/api/rtms': relay('https://apis.data.go.kr/1613000', /^\/api\/rtms/),
   '/api/opinet': relay('https://www.opinet.co.kr/api', /^\/api\/opinet/),
   '/api/subway': relay('http://swopenapi.seoul.go.kr/api/subway', /^\/api\/subway/),
-  '/api/meteo/api.open-meteo.com': relay('https://api.open-meteo.com', /^\/api\/meteo\/api\.open-meteo\.com/),
-  '/api/meteo/air-quality-api.open-meteo.com': relay('https://air-quality-api.open-meteo.com', /^\/api\/meteo\/air-quality-api\.open-meteo\.com/),
+  '/api/kma': relay('https://apis.data.go.kr/1360000', /^\/api\/kma/),
+  '/api/airkorea': relay('https://apis.data.go.kr/B552584', /^\/api\/airkorea/),
 };
 
 export default defineConfig({

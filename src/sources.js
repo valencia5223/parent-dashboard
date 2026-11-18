@@ -4,6 +4,7 @@
 //   /api/gbis/*   → https://apis.data.go.kr/6410000/*   (경기도 버스)
 //   /api/rtms/*   → https://apis.data.go.kr/1613000/*   (국토부 실거래가)
 //   /api/opinet/* → https://www.opinet.co.kr/api/*     (오피넷)
+//   /api/kma/*, /api/airkorea/* → 날씨·미세먼지 (src/weather.js)
 // 키는 빌드할 때 환경변수(VITE_DATA_GO_KR_KEY, VITE_OPINET_KEY)로 들어와 화면 코드에 포함된다.
 // 정적 사이트라 숨길 수 없으므로, 문제가 생기면 키를 재발급하면 된다.
 
@@ -13,7 +14,7 @@ export class FetchError extends Error {
 const needKey = (name) => new FetchError(`${name} 키가 설정되지 않았어요`, 'NO_KEY');
 
 // 공공데이터포털은 '인코딩' 키와 '디코딩' 키를 준다. 어느 쪽을 넣어도 되게 디코딩 키로 맞춘다.
-function dataKey() {
+export function dataKey() {
   const k = (import.meta.env.VITE_DATA_GO_KR_KEY || '').trim();
   if (!k) return '';
   try { return k.includes('%') ? decodeURIComponent(k) : k; } catch { return k; }
@@ -46,10 +47,18 @@ export async function cached(key, ttlMs, fn, { persist = false } = {}) {
   }
 }
 
-async function getText(url, init = {}) {
+// AbortSignal.timeout 이 없는 오래된 핸드폰 브라우저도 있어서 직접 만든다
+export function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
+export async function getText(url, init = {}) {
   let res;
   try {
-    res = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) });
+    res = await fetch(url, { ...init, signal: timeoutSignal(15000) });
   } catch {
     throw new FetchError('인터넷 연결을 확인해 주세요', 'NETWORK');
   }
@@ -78,7 +87,7 @@ function xmlItems(xml, tag) {
 const xmlValue = (xml, tag) => xml.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))?.[1]?.trim();
 
 // 공공데이터포털 공통 오류(키 문제 등)를 사람이 읽을 말로
-function checkGatewayError(text) {
+export function checkGatewayError(text) {
   const reason = xmlValue(text, 'returnReasonCode') || text.match(/"returnReasonCode"\s*:\s*"(\d+)"/)?.[1];
   if (!reason) return;
   const msg = {
@@ -90,8 +99,8 @@ function checkGatewayError(text) {
   throw new FetchError(msg, reason === '22' ? 'LIMIT' : 'BAD_KEY');
 }
 
-const toArr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
-const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
+export const toArr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
+export const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 
 // 경기버스 v2 응답: JSON 이면 response.msgBody[listName], 아니면 XML
 function gbisList(text, listName) {

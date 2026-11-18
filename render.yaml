@@ -28,13 +28,13 @@ services:
       - type: rewrite
         source: /api/subway/*
         destination: http://swopenapi.seoul.go.kr/api/subway/*
-      # 날씨(Open-Meteo): 핸드폰에서 바로 부르다 실패할 때만 이쪽으로 한 번 더 (src/api.js meteo)
+      # 날씨(기상청)·미세먼지(에어코리아) — src/weather.js
       - type: rewrite
-        source: /api/meteo/api.open-meteo.com/*
-        destination: https://api.open-meteo.com/*
+        source: /api/kma/*
+        destination: https://apis.data.go.kr/1360000/*
       - type: rewrite
-        source: /api/meteo/air-quality-api.open-meteo.com/*
-        destination: https://air-quality-api.open-meteo.com/*
+        source: /api/airkorea/*
+        destination: https://apis.data.go.kr/B552584/*
       - type: rewrite
         source: /*
         destination: /index.html
