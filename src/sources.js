@@ -313,3 +313,69 @@ export function fetchEmergency({ lat, lng }) {
     });
   });
 }
+
+// ---------- 아이 병원(소아 진료 의원, 국립중앙의료원 병·의원 찾기 서비스) ----------
+// '달빛어린이병원' 표시 항목은 없어서, 소아청소년과(QD=D002) 진료 의원의 요일별 진료시간으로 '지금 진료 중'을 계산하고
+// 소개 글(dutyInf)에 '달빛' 이 있으면 표시만 붙인다.
+const HSP = '/HsptlAsembySearchService/getHsptlMdcncListInfoInqire';
+
+// 근처 시·군(주소 앞 두 마디, 예: 경기도 안양시) — 가까운 응급실 주소로 정한다(위치마다 하루 보관)
+function nearbyRegions({ lat, lng }) {
+  return cached(`regions:${lat.toFixed(2)},${lng.toFixed(2)}`, 24 * 3600e3, async () => {
+    const list = await nmcItems('/ErmctInfoInqireService/getEgytLcinfoInqire', { WGS84_LON: String(lng), WGS84_LAT: String(lat), numOfRows: '12' });
+    const out = [];
+    list.forEach((o, i) => {
+      const [q0, q1] = (o.dutyAddr || '').split(' ');
+      if (!q0 || !q1 || (i > 0 && num(o.distance) > 7)) return;
+      if (!out.some((r) => r.q0 === q0 && r.q1 === q1)) out.push({ q0, q1 });
+    });
+    return out.slice(0, 4);
+  }, { persist: true });
+}
+
+// 시·군 하나의 소아 진료 의원(진료시간은 자주 안 바뀌어 하루 보관)
+function kidsRegion({ q0, q1 }) {
+  return cached(`kids2:${q0}:${q1}`, 24 * 3600e3, async () => {
+    const rows = [];
+    for (let page = 1; page <= 4; page++) {
+      const items = await nmcItems(HSP, { Q0: q0, Q1: q1, QD: 'D002', numOfRows: '500', pageNo: String(page) });
+      rows.push(...items);
+      if (items.length < 500) break;
+    }
+    // 요양병원은 소아청소년과가 진료과목에 있어도 아이를 데려갈 곳이 아니라 뺀다
+    return rows.filter((o) => !/요양/.test(`${o.dutyName}${o.dutyDivNam || ''}`)).map((o) => {
+      const times = {};
+      for (let d = 1; d <= 8; d++) {
+        const s = hm(o[`dutyTime${d}s`]);
+        const e = hm(o[`dutyTime${d}c`]);
+        if (s != null && e != null) times[d] = [s, e];
+      }
+      const inf = (o.dutyInf || '').replace(/\s+/g, ' ').trim();
+      return {
+        id: o.hpid, name: o.dutyName, kind: o.dutyDivNam || o.dutyDivName || '', addr: o.dutyAddr || '',
+        tel: tel(o.dutyTel1) || tel(o.dutyTel3), lat: num(o.wgs84Lat), lng: num(o.wgs84Lon),
+        times, moon: /달빛/.test(inf), note: inf.length <= 40 ? inf : '',
+      };
+    });
+  }, { persist: true });
+}
+
+const distKm = (a, b) => {
+  const R = 6371;
+  const dLat = ((b.lat - a.lat) * Math.PI) / 180;
+  const dLng = ((b.lng - a.lng) * Math.PI) / 180;
+  const h = Math.sin(dLat / 2) ** 2 + Math.cos((a.lat * Math.PI) / 180) * Math.cos((b.lat * Math.PI) / 180) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+};
+
+// 근처 10km 안 소아 진료 의원 (요일별 진료시간 포함, 지금 진료 중인지는 화면에서 계산)
+export async function fetchKidsClinics(pos) {
+  const regions = await nearbyRegions(pos);
+  const lists = await Promise.all(regions.map((r) => kidsRegion(r).catch(() => [])));
+  const seen = new Set();
+  return lists.flat()
+    .filter((o) => o.lat && o.lng && !seen.has(o.id) && seen.add(o.id))
+    .map((o) => ({ ...o, distance: distKm(pos, o) }))
+    .filter((o) => o.distance <= 10)
+    .sort((a, b) => a.distance - b.distance);
+}

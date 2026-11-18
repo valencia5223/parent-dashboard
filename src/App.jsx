@@ -175,7 +175,7 @@ export default function App() {
 
       <footer className="app-foot">
         <button type="button" className="btn" onClick={() => setRefreshKey((k) => k + 1)}>전체 새로고침</button>
-        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 주유소 오피넷 · 약국·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
+        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
       </footer>
 
       {picking && (
