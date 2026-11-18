@@ -151,7 +151,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .med-meta { font-size: 0.85rem; color: var(--text-sub); }
 .med-open { color: var(--good); font-weight: 700; }
 .med-note { font-size: 0.78rem; color: var(--text-sub); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.moon-badge { display: inline-block; font-size: 0.75rem; font-weight: 700; color: #6d28d9; background: #ede9fe; border-radius: 999px; padding: 1px 8px; margin: 2px 0; }
+.moon-box { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: var(--radius-md); padding: 12px 14px 6px; display: flex; flex-direction: column; gap: 4px; }
+.moon-title { font-size: 1rem; font-weight: 800; color: #5b21b6; }
+.moon-title small { font-size: 0.78rem; font-weight: 500; color: var(--text-sub); margin-left: 4px; }
+.moon-box .med-list li { border-bottom-color: #ddd6fe; }
+.moon-box .btn-block { margin-bottom: 8px; }
+.moon-st { font-weight: 700; font-size: 0.88rem; }
+.moon-st-open { color: var(--good); }
+.moon-st-closing { color: var(--bad); }
+.moon-st-later { color: #6d28d9; }
+.moon-st-none { color: var(--text-sub); font-weight: 500; }
+.section-title { font-size: 1rem; font-weight: 800; margin-top: 4px; }
 .med-closing { color: var(--bad); font-weight: 700; }
 .med-actions { display: flex; gap: 6px; flex-shrink: 0; }
 .bed { font-weight: 700; font-size: 0.9rem; }

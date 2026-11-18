@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchEmergency, fetchKidsClinics, fetchPharmacies, useFetch } from '../api.js';
+import { fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchPharmacies, useFetch } from '../api.js';
 import Card, { Body } from './Card.jsx';
 
 // 약국(지금 문 연 곳) · 아이 병원(지금 진료 중인 소아 진료 의원) · 응급실(실시간 남은 병상)
@@ -117,6 +117,57 @@ function ClinicActions({ o }) {
   );
 }
 
+// 달빛어린이병원: 오늘 달빛 진료시간으로 지금 진료 중 / 몇 시부터 / 오늘 끝남 / 오늘 쉼
+function moonStatus(o, slot, now) {
+  const t = o.times[slot];
+  if (!t) return { cls: 'none', text: '오늘은 달빛 진료 없음' };
+  const today = { start: t[0], end: t[1] };
+  const st = openState(today, now);
+  if (st) return { cls: st.left <= 30 ? 'closing' : 'open', text: st.left <= 30 ? `지금 진료 중 · ${st.left}분 뒤 끝` : `지금 진료 중 · ${clockText(t[1])}까지`, open: true };
+  if (t[0] > now) return { cls: 'later', text: `오늘 ${clockText(t[0])} ~ ${clockText(t[1])}` };
+  return { cls: 'none', text: '오늘 진료 끝' };
+}
+
+function MoonClinics({ pos, slot, now }) {
+  const state = useFetch(() => fetchMoonClinics(pos), [pos.lat, pos.lng], { interval: 6 * 3600e3 });
+  const [all, setAll] = useState(false);
+  return (
+    <section className="moon-box">
+      <h3 className="moon-title">🌙 달빛어린이병원 <small>밤·휴일에 아이를 보는 곳</small></h3>
+      <Body state={state} lines={3}>
+        {(list) => {
+          if (list.length === 0) return <p className="empty">25km 안에 달빛어린이병원이 없어요</p>;
+          // 지금 진료 중인 곳을 먼저, 그다음 가까운 순
+          const rows = list.map((o) => ({ ...o, ms: moonStatus(o, slot, now) }))
+            .sort((a, b) => (b.ms.open ? 1 : 0) - (a.ms.open ? 1 : 0) || a.distance - b.distance);
+          const shown = all ? rows : rows.slice(0, 3);
+          return (
+            <>
+              <ul className="med-list">
+                {shown.map((o) => (
+                  <li key={o.id}>
+                    <div className="med-main">
+                      <p className="med-name">{o.name}</p>
+                      <p className={`moon-st moon-st-${o.ms.cls}`}>{o.ms.text}</p>
+                      <p className="med-meta">{km(o.distance)}</p>
+                    </div>
+                    <ClinicActions o={o} />
+                  </li>
+                ))}
+              </ul>
+              {rows.length > 3 && (
+                <button type="button" className="btn btn-sm btn-block" onClick={() => setAll(!all)} aria-expanded={all}>
+                  {all ? '접기' : `달빛어린이병원 ${rows.length - 3}곳 더 보기`}
+                </button>
+              )}
+            </>
+          );
+        }}
+      </Body>
+    </section>
+  );
+}
+
 function KidsClinics({ pos }) {
   const state = useFetch(() => fetchKidsClinics(pos), [pos.lat, pos.lng], { interval: 6 * 3600e3 });
   const [now, setNow] = useState(nowHM);
@@ -125,6 +176,9 @@ function KidsClinics({ pos }) {
   const slot = todaySlot();
 
   return (
+    <>
+    <MoonClinics pos={pos} slot={slot} now={now} />
+    <h3 className="section-title">지금 진료 중인 아이 진료 병·의원</h3>
     <Body state={state} lines={4}>
       {(list) => {
         const withToday = list.map((o) => {
@@ -155,7 +209,6 @@ function KidsClinics({ pos }) {
                     <li key={o.id}>
                       <div className="med-main">
                         <p className="med-name">{o.name}</p>
-                        {o.moon && <p className="moon-badge">🌙 달빛어린이병원</p>}
                         <p className="med-meta">
                           <span className={o.st.left <= 30 ? 'med-closing' : 'med-open'}>
                             {o.st.left <= 30 ? `${o.st.left}분 뒤 진료 끝` : `${clockText(o.today.end)}까지`}
@@ -191,11 +244,12 @@ function KidsClinics({ pos }) {
                 </ul>
               </>
             )}
-            <p className="card-foot">소아청소년과 진료를 하는 의원이 신고한 진료시간 기준이에요. 🌙 는 병원 소개에 달빛어린이병원이라고 적힌 곳이에요. 가시기 전에 전화로 확인하세요.</p>
+            <p className="card-foot">병원이 신고한 진료시간 기준이에요(달빛어린이병원은 달빛 진료시간). 가시기 전에 전화로 확인하세요.</p>
           </>
         );
       }}
     </Body>
+    </>
   );
 }
 
