@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 
-import { FetchError } from './sources.js';
+import { FetchError, cached } from './sources.js';
 
 export { fetchStations, fetchArrivals, fetchGas, fetchApt, fetchAptList, loadRegions, DEFAULT_APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchSubwayStations, fetchSubwayArrivals, SUBWAY_LINES } from './sources.js';
 
@@ -18,7 +18,23 @@ export async function getJSON(url) {
 }
 
 // 날씨·미세먼지는 키 없이 브라우저에서 바로 (Open-Meteo)
-export function fetchWeather({ lat, lng }) {
+// 예보 격자가 수 km 라 약 1km 단위로 맞추고, 이 기기에 10분 기억해 다시 열 때 바로 보여 준다.
+const grid = (v) => Math.round(v * 100) / 100;
+const TEN_MIN = 10 * 60e3;
+
+export function fetchWeather(pos) {
+  const lat = grid(pos.lat);
+  const lng = grid(pos.lng);
+  return cached(`wx:${lat},${lng}`, TEN_MIN, () => getWeather(lat, lng), { persist: true });
+}
+
+export function fetchAir(pos) {
+  const lat = grid(pos.lat);
+  const lng = grid(pos.lng);
+  return cached(`air:${lat},${lng}`, TEN_MIN, () => getAir(lat, lng), { persist: true });
+}
+
+function getWeather(lat, lng) {
   const q = new URLSearchParams({
     latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '7', // 주간 날씨까지
     current: 'temperature_2m,apparent_temperature,relative_humidity_2m,weather_code,wind_speed_10m,precipitation,is_day',
@@ -29,7 +45,7 @@ export function fetchWeather({ lat, lng }) {
   return getJSON(`https://api.open-meteo.com/v1/forecast?${q}`);
 }
 
-export function fetchAir({ lat, lng }) {
+function getAir(lat, lng) {
   const q = new URLSearchParams({
     latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '7', // 주간 날씨까지
     current: 'pm10,pm2_5', hourly: 'pm10,pm2_5',

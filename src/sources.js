@@ -22,7 +22,7 @@ const opinetKey = () => (import.meta.env.VITE_OPINET_KEY || '').trim();
 
 // ---------- 캐시: 메모리 + (오래 둘 것은) localStorage ----------
 const mem = new Map();
-async function cached(key, ttlMs, fn, { persist = false } = {}) {
+export async function cached(key, ttlMs, fn, { persist = false } = {}) {
   const hit = mem.get(key);
   if (hit && Date.now() - hit.t < ttlMs) return hit.v;
   if (hit?.p) return hit.p;
@@ -115,10 +115,10 @@ function gbisList(text, listName) {
 export function fetchStations({ lat, lng }) {
   const key = dataKey();
   if (!key) return Promise.reject(needKey('공공데이터포털'));
-  return cached(`st:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
+  return cached(`st2:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
     const q = new URLSearchParams({ serviceKey: key, x: String(lng), y: String(lat), format: 'json' });
     const list = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationAroundListv2?${q}`), 'busStationAroundList');
-    return list
+    const stations = list
       .map((s) => ({
         id: String(s.stationId),
         name: s.stationName,
@@ -126,8 +126,46 @@ export function fetchStations({ lat, lng }) {
         region: s.regionName || '',
         distance: num(s.distance),
       }))
+      // 버스가 서지 않는 곳(이름에 '미정차', 정류장 번호 00000)은 뺀다
+      .filter((s) => !NO_STOP.test(s.name) && !/^0+$/.test(s.no))
       .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9))
-      .slice(0, 6);
+      .slice(0, 16);
+    // 같은 이름의 정류장(길 건너 맞은편 등)을 구분하려고 '다음 정류장 방면'을 붙인다. 못 찾아도 목록은 보여 준다.
+    const dirs = await Promise.allSettled(stations.map((s) => stationDirection(s.id, key)));
+    return stations.map((s, i) => ({ ...s, toward: dirs[i].status === 'fulfilled' ? dirs[i].value : '' }));
+  }, { persist: true });
+}
+
+const NO_STOP = /미정차/;
+
+// 노선의 정류장 순서 (여러 정류장이 같은 노선을 지나므로 메모리에 함께 둔다)
+function routeStops(routeId, key) {
+  return cached(`route:${routeId}`, 24 * 3600e3, async () => {
+    const q = new URLSearchParams({ serviceKey: key, routeId, format: 'json' });
+    const list = gbisList(await getText(`/api/gbis/busrouteservice/v2/getBusRouteStationListv2?${q}`), 'busRouteStationList');
+    return list
+      .map((s) => ({ id: String(s.stationId), name: s.stationName, seq: num(s.stationSeq) }))
+      .sort((a, b) => a.seq - b.seq);
+  });
+}
+
+// 이 정류장을 지나는 노선에서 바로 다음 정류장 이름 → '○○ 방면'. 정류장은 잘 안 바뀌니 일주일 기억한다.
+function stationDirection(stationId, key) {
+  return cached(`dir:${stationId}`, 7 * 24 * 3600e3, async () => {
+    const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
+    const routes = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationViaRouteListv2?${q}`), 'busRouteList');
+    let here = '';
+    for (const r of routes.slice(0, 3)) {
+      const stops = await routeStops(String(r.routeId), key);
+      // staOrder 로 찾되, 순환 노선처럼 같은 정류장이 두 번 나오면 그 순서의 것을 쓴다
+      let i = stops.findIndex((s) => s.seq === num(r.staOrder) && s.id === String(stationId));
+      if (i === -1) i = stops.findIndex((s) => s.id === String(stationId));
+      if (i === -1) continue;
+      here = stops[i].name;
+      const next = stops.slice(i + 1).find((s) => !NO_STOP.test(s.name) && s.name !== here);
+      if (next) return next.name;
+    }
+    return '';
   }, { persist: true });
 }
 

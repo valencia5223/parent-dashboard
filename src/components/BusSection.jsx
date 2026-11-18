@@ -3,6 +3,7 @@ import { fetchArrivals, fetchStations, useFetch } from '../api.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const SHOW = 4; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
+const STOP_SHOW = 6; // 처음에 보여 줄 정류장 수
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
 
 function BusRow({ b }) {
@@ -57,32 +58,41 @@ function Arrivals({ station }) {
 export default function BusSection({ pos }) {
   const stations = useFetch(() => fetchStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
+  const [allStops, setAllStops] = useState(false);
 
   // 위치가 바뀌면 가장 가까운 정류장으로 돌아간다
-  useEffect(() => { setPicked(null); }, [pos.lat, pos.lng]);
+  useEffect(() => { setPicked(null); setAllStops(false); }, [pos.lat, pos.lng]);
 
   return (
       <Body state={stations} lines={4}>
         {(list) => {
           if (list.length === 0) return <p className="empty">주변 500m 안에 정류장을 찾지 못했어요</p>;
           const station = list.find((s) => s.id === picked) || list[0];
+          // 고른 정류장이 접힌 쪽에 있어도 보이게
+          const shown = allStops ? list : list.filter((s, i) => i < STOP_SHOW || s.id === station.id);
           return (
             <>
-              <div className="chips chips-scroll" role="tablist" aria-label="정류장 고르기">
-                {list.slice(0, 5).map((s) => (
+              <div className="stop-grid" role="tablist" aria-label="정류장 고르기">
+                {shown.map((s) => (
                   <button
                     key={s.id}
                     type="button"
                     role="tab"
                     aria-selected={s.id === station.id}
-                    className={`chip${s.id === station.id ? ' chip-on' : ''}`}
+                    className={`stop${s.id === station.id ? ' stop-on' : ''}`}
                     onClick={() => setPicked(s.id)}
                   >
-                    {s.name}
+                    <span className="stop-name">{s.name}</span>
+                    {s.toward && <span className="stop-dir">→ {s.toward} 방면</span>}
                     <small>{s.distance != null ? `${s.distance}m` : ''}{s.no ? ` · ${s.no}` : ''}</small>
                   </button>
                 ))}
               </div>
+              {list.length > STOP_SHOW && (
+                <button type="button" className="btn btn-sm btn-block" onClick={() => setAllStops(!allStops)} aria-expanded={allStops}>
+                  {allStops ? '정류장 접기' : `주변 정류장 ${list.length - STOP_SHOW}곳 더 보기`}
+                </button>
+              )}
               <Arrivals key={station.id} station={station} />
             </>
           );

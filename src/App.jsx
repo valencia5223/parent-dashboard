@@ -18,10 +18,15 @@ const RECENT_MAX = 6;
 const load = (k, d) => { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } };
 const store = (k, v) => { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } };
 const samePlace = (a, b) => a.lat === b.lat && a.lng === b.lng;
+const LAST_GPS_KEY = 'pd_last_gps';
+const MOVE_M = 100;
+// 가까운 두 점 사이 거리(m), 동네 안에서는 이 정도 근사로 충분
+const meters = (a, b) => Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 88000);
 
 function useLocation() {
   const saved = load(PLACE_KEY, null);
-  const [pos, setPos] = useState(() => (saved ? { ...saved, source: 'manual' } : null));
+  // 직접 고른 곳이 없으면 지난번 GPS 위치로 바로 보여 주고, 새 위치는 뒤에서 찾는다
+  const [pos, setPos] = useState(() => (saved ? { ...saved, source: 'manual' } : load(LAST_GPS_KEY, null)));
   const [status, setStatus] = useState(saved ? 'manual' : 'finding'); // finding | gps | manual | denied | unsupported
   const [label, setLabel] = useState('');
   const [recent, setRecent] = useState(() => load(RECENT_KEY, []));
@@ -37,21 +42,27 @@ function useLocation() {
       return;
     }
     setStatus('finding');
-    navigator.geolocation.getCurrentPosition(
-      (p) => {
-        store(PLACE_KEY, null);
-        setPos({ lat: round(p.coords.latitude), lng: round(p.coords.longitude), source: 'gps' });
-        setStatus('gps');
-      },
-      (err) => {
-        setGpsError(err.code === 1
-          ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요'
-          : '지금 위치를 찾지 못했어요. 잠시 뒤 다시 눌러 주세요');
-        setPos((p) => p || DEFAULT_POS);
-        setStatus((s) => (s === 'finding' ? 'done' : s));
-      },
-      { enableHighAccuracy: true, timeout: 15000, maximumAge: 0 },
-    );
+    // 정확한 GPS 는 실내에서 10초 넘게 걸리기도 한다. 그래서 빠른 대략 위치(와이파이·기지국)를 먼저 쓰고,
+    // 정확한 위치가 나오면 100m 넘게 차이 날 때만 바꾼다(조금씩 흔들릴 때마다 모든 카드를 다시 부르지 않게).
+    let found = false;
+    const use = (p) => {
+      found = true;
+      const next = { lat: round(p.coords.latitude), lng: round(p.coords.longitude), source: 'gps' };
+      store(PLACE_KEY, null);
+      store(LAST_GPS_KEY, next);
+      setPos((cur) => (cur?.source === 'gps' && meters(cur, next) < MOVE_M ? cur : next));
+      setStatus('gps');
+    };
+    const fail = (err) => {
+      if (found) return; // 대략 위치라도 찾았으면 그대로 쓴다
+      setGpsError(err.code === 1
+        ? '위치 권한이 꺼져 있어요. 브라우저 설정에서 이 사이트의 위치를 허용해 주세요'
+        : '지금 위치를 찾지 못했어요. 잠시 뒤 다시 눌러 주세요');
+      setPos((p) => p || DEFAULT_POS);
+      setStatus((s) => (s === 'finding' ? 'done' : s));
+    };
+    navigator.geolocation.getCurrentPosition(use, () => {}, { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60e3 });
+    navigator.geolocation.getCurrentPosition(use, fail, { enableHighAccuracy: true, timeout: 20000, maximumAge: 0 });
   }, []);
 
   const pick = useCallback((place) => {
@@ -149,7 +160,7 @@ export default function App() {
   const slot = (id) => `slot${mtab === id ? ' slot-on' : ''}`;
 
   let where;
-  if (status === 'finding') where = '현재 위치를 찾는 중…';
+  if (status === 'finding' && !pos) where = '현재 위치를 찾는 중…';
   else if (pos?.source === 'manual') where = pos.name;
   else if (pos?.source === 'default') where = '산본역 근처 (기본 위치)';
   else where = label || '지금 있는 곳';
