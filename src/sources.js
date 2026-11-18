@@ -400,3 +400,68 @@ export async function fetchKidsClinics(pos) {
     .filter((o) => o.distance <= 10)
     .sort((a, b) => a.distance - b.distance);
 }
+
+// ---------- 지하철 (가까운 역: OpenStreetMap Overpass, 실시간 도착: 서울 열린데이터광장) ----------
+// 서울 API 는 http 만 되어 https 사이트에서 바로 못 부른다 → /api/subway 중계(render.yaml rewrite·vite proxy).
+// 키는 서울 열린데이터광장 '실시간 지하철' 인증키(VITE_SEOUL_SUBWAY_KEY, 공공데이터포털 키와 다름).
+const subwayKey = () => (import.meta.env.VITE_SEOUL_SUBWAY_KEY || '').trim();
+
+// 반경 3km 안 지하철역(역 이름은 서울 API 의 statnNm 과 같게 '역' 을 뗀 이름). 역 위치는 잘 안 바뀌어 30일 보관
+export function fetchSubwayStations({ lat, lng }) {
+  return cached(`subst:${lat.toFixed(3)},${lng.toFixed(3)}`, 30 * 864e5, async () => {
+    const q = `[out:json][timeout:20];node["railway"="station"]["station"="subway"](around:3000,${lat},${lng});out;`;
+    let res;
+    try {
+      res = await fetch('https://overpass-api.de/api/interpreter', { method: 'POST', body: new URLSearchParams({ data: q }), signal: AbortSignal.timeout(25000) });
+    } catch {
+      throw new FetchError('역 위치를 찾지 못했어요(인터넷 연결 확인)', 'NETWORK');
+    }
+    if (!res.ok) throw new FetchError(`역 위치 정보 오류 (${res.status})`);
+    const j = await res.json();
+    const seen = new Set();
+    return (j.elements || [])
+      .map((e) => ({ name: String(e.tags?.['name:ko'] || e.tags?.name || '').replace(/역$/, '').trim(), lat: e.lat, lng: e.lon }))
+      .filter((s) => s.name)
+      .map((s) => ({ ...s, distance: Math.round(distKm({ lat, lng }, s) * 1000) }))
+      .sort((a, b) => a.distance - b.distance)
+      .filter((s) => !seen.has(s.name) && seen.add(s.name))
+      .slice(0, 4);
+  }, { persist: true });
+}
+
+export const SUBWAY_LINES = {
+  1001: ['1호선', '#0052a4'], 1002: ['2호선', '#00a84d'], 1003: ['3호선', '#ef7c1c'], 1004: ['4호선', '#00a5de'],
+  1005: ['5호선', '#996cac'], 1006: ['6호선', '#cd7c2f'], 1007: ['7호선', '#747f00'], 1008: ['8호선', '#e6186c'],
+  1009: ['9호선', '#bdb092'], 1032: ['GTX-A', '#9a6292'], 1063: ['경의중앙선', '#77c4a3'], 1065: ['공항철도', '#0090d2'],
+  1067: ['경춘선', '#0c8e72'], 1075: ['수인분당선', '#fabe00'], 1077: ['신분당선', '#d4003b'], 1081: ['경강선', '#0054a6'],
+  1092: ['우이신설선', '#b0ce18'], 1093: ['서해선', '#8fc31f'], 1094: ['신림선', '#6789ca'],
+};
+
+export function fetchSubwayArrivals(station) {
+  const key = subwayKey();
+  if (!key) return Promise.reject(needKey('서울 열린데이터광장 실시간 지하철'));
+  return cached(`subarr:${station}`, 20e3, async () => {
+    const text = await getText(`/api/subway/${encodeURIComponent(key)}/json/realtimeStationArrival/0/30/${encodeURIComponent(station)}`);
+    let j;
+    try { j = JSON.parse(text); } catch { throw new FetchError('지하철 정보를 읽지 못했어요'); }
+    const err = j.errorMessage || j;
+    const code = String(err.code || '');
+    if (code === 'INFO-200') return []; // 해당 역 정보 없음(지금 운행 없음)
+    if (code.startsWith('INFO-1') || code === 'ERROR-300') throw new FetchError('서울 열린데이터광장 인증키가 맞지 않아요', 'BAD_KEY');
+    if (code && code !== 'INFO-000') throw new FetchError(err.message || `지하철 정보 오류 (${code})`);
+    return (j.realtimeArrivalList || []).map((t) => ({
+      id: `${t.subwayId}-${t.btrainNo}-${t.updnLine}`,
+      line: String(t.subwayId),
+      dir: t.updnLine || '', // 상행·하행(2호선은 내선·외선)
+      dest: t.bstatnNm || (t.trainLineNm || '').split('행')[0],
+      way: (t.trainLineNm || '').split('-')[1]?.trim() || '', // '대야미방면'
+      kind: t.btrainSttus && t.btrainSttus !== '일반' ? t.btrainSttus : '', // 급행 등
+      sec: num(t.barvlDt) || 0,
+      at: t.recptnDt ? Date.parse(t.recptnDt.replace(' ', 'T') + '+09:00') : null,
+      msg: t.arvlMsg2 || '',
+      where: t.arvlMsg3 || '',
+      code: String(t.arvlCd ?? ''),
+      order: t.ordkey || '',
+    }));
+  });
+}

@@ -140,6 +140,22 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .hourly-rain { font-size: 0.75rem; color: var(--primary); }
 
 /* 미세먼지 */
+/* 지하철 */
+.sub-line { display: flex; flex-direction: column; gap: 8px; }
+.sub-line + .sub-line { border-top: 1px solid var(--border-color); padding-top: 12px; }
+.sub-line-name { font-weight: 800; display: flex; align-items: center; gap: 8px; }
+.sub-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.sub-dirs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.sub-dir { background: var(--bg-subtle); border-radius: var(--radius-md); padding: 10px 12px; min-width: 0; }
+.sub-dir-name { font-size: 0.8rem; font-weight: 700; color: var(--text-sub); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sub-dir-name small { font-weight: 500; }
+.sub-dir ul { list-style: none; padding: 0; margin-top: 4px; display: flex; flex-direction: column; gap: 4px; }
+.sub-dir li { display: flex; justify-content: space-between; align-items: baseline; gap: 6px; }
+.sub-dest { font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.sub-dest em { font-style: normal; font-size: 0.72rem; color: var(--bad); font-weight: 700; }
+.sub-when { font-weight: 800; white-space: nowrap; }
+.sub-soon { color: var(--bad); }
+
 /* 약국·응급실 */
 .med-sub { color: var(--text-body); }
 .med-sub b { color: var(--primary); }

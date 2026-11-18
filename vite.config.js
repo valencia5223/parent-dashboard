@@ -12,6 +12,7 @@ const proxy = {
   '/api/gbis': relay('https://apis.data.go.kr/6410000', /^\/api\/gbis/),
   '/api/rtms': relay('https://apis.data.go.kr/1613000', /^\/api\/rtms/),
   '/api/opinet': relay('https://www.opinet.co.kr/api', /^\/api\/opinet/),
+  '/api/subway': relay('http://swopenapi.seoul.go.kr/api/subway', /^\/api\/subway/),
 };
 
 export default defineConfig({

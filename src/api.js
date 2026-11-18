@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 
 import { FetchError } from './sources.js';
 
-export { fetchStations, fetchArrivals, fetchGas, fetchApt, APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics } from './sources.js';
+export { fetchStations, fetchArrivals, fetchGas, fetchApt, APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchSubwayStations, fetchSubwayArrivals, SUBWAY_LINES } from './sources.js';
 
 export async function getJSON(url) {
   let res;

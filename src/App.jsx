@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { reverseGeocode } from './api.js';
 import WeatherCard from './components/WeatherCard.jsx';
 import BusCard from './components/BusCard.jsx';
+import SubwayCard from './components/SubwayCard.jsx';
 import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
@@ -162,6 +163,7 @@ export default function App() {
         <main className="grid" key={refreshKey}>
           <WeatherCard pos={pos} />
           <BusCard pos={pos} />
+          <SubwayCard pos={pos} />
           <GasCard pos={pos} />
           <AptCard />
           <HealthCard pos={pos} />
@@ -175,7 +177,7 @@ export default function App() {
 
       <footer className="app-foot">
         <button type="button" className="btn" onClick={() => setRefreshKey((k) => k + 1)}>전체 새로고침</button>
-        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
+        <p>날씨·미세먼지 Open-Meteo · 버스 경기도 버스정보 · 지하철 서울 열린데이터광장·OpenStreetMap · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
       </footer>
 
       {picking && (
