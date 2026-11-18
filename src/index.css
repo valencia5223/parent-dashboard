@@ -332,11 +332,25 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* 카드 자리: PC 에서는 없는 것처럼(display: contents) 격자에 그대로 놓이고, 핸드폰에서는 고른 것만 보인다 */
 .slot { display: contents; }
+/* PC 위쪽 바로가기 줄: 스크롤해도 위에 붙어 있다(핸드폰은 아래쪽 탭 바를 쓰므로 숨김) */
+.jump-bar {
+  position: sticky; top: 0; z-index: 40; display: flex; gap: 8px; flex-wrap: wrap;
+  margin: -6px -16px 14px; padding: 10px 16px;
+  background: color-mix(in srgb, var(--bg) 88%, transparent); backdrop-filter: blur(8px);
+}
+.jump-bar button {
+  display: inline-flex; align-items: center; gap: 6px; height: 38px; padding: 0 16px;
+  border: 1px solid var(--border-color); border-radius: 999px; background: var(--bg-card);
+  font: inherit; font-weight: 700; color: var(--text-body); cursor: pointer;
+}
+.jump-bar button:hover { border-color: var(--primary); color: var(--primary); }
+.card { scroll-margin-top: 72px; }
 .mobile-tabbar { display: none; }
 .app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 640px) {
   /* 아래쪽 탭 바: 한 번에 카드 하나 */
+  .jump-bar { display: none; }
   .slot { display: none; }
   .slot.slot-on { display: block; }
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }

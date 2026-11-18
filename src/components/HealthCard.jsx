@@ -25,7 +25,7 @@ function todaySlot() {
   if (HOLIDAYS.has(d.toISOString().slice(0, 10))) return 8;
   return d.getUTCDay() || 7;
 }
-const SHOW = 5;
+const SHOW = 3; // 처음에 보여 줄 곳 수 (나머지는 '더 보기')
 const km = (d) => (d == null ? '' : d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`);
 const mapLink = (o) => `https://map.kakao.com/link/to/${encodeURIComponent(o.name)},${o.lat},${o.lng}`;
 

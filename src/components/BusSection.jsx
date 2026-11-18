@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { fetchArrivals, fetchStations, useFetch } from '../api.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
-const SHOW = 5; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
+const SHOW = 4; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
 
 function BusRow({ b }) {

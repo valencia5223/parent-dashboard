@@ -11,6 +11,7 @@ function price(man) {
   return rest ? `${eok}억 ${rest.toLocaleString('ko-KR')}만원` : `${eok}억원`;
 }
 const pyeong = (m2) => (m2 == null ? '' : `${(m2 * 0.3025).toFixed(1)}평`);
+const APT_SHOW = 4; // 처음에 보여 줄 거래 수 (나머지는 '더 보기')
 const dateText = (d) => `${Number(d.slice(2, 4))}.${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
 // 면적은 소수점이 조금씩 달라도 같은 평형으로 묶는다
 const areaKey = (m2) => Math.round(m2);
@@ -93,7 +94,7 @@ function AptBody({ apt }) {
   }
 
   const shown = recentAll.filter((t) => area === 'all' || areaKey(t.area) === area);
-  const list = more ? shown : shown.slice(0, 8);
+  const list = more ? shown : shown.slice(0, APT_SHOW);
 
   return (
     <>
@@ -133,9 +134,9 @@ function AptBody({ apt }) {
           ))}
         </tbody>
       </table>
-      {shown.length > 8 && (
+      {shown.length > APT_SHOW && (
         <button type="button" className="btn btn-block" onClick={() => setMore(!more)}>
-          {more ? '접기' : `${shown.length - 8}건 더 보기`}
+          {more ? '접기' : `${shown.length - APT_SHOW}건 더 보기`}
         </button>
       )}
     </>

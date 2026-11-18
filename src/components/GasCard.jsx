@@ -14,8 +14,11 @@ const km = (m) => (m == null ? '' : m < 1000 ? `${Math.round(m)}m` : `${(m / 100
 const saved = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
 const save = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장 못 해도 괜찮음 */ } };
 
+const GAS_SHOW = 4; // 처음에 보여 줄 주유소 수
+
 export default function GasCard({ pos }) {
   const [fuel, setFuel] = useState(() => saved('pd_fuel', 'gasoline'));
+  const [more, setMore] = useState(false);
   const [radius, setRadius] = useState(() => Number(saved('pd_radius', '3000')));
   const state = useFetch(() => fetchGas(pos, fuel, radius), [pos.lat, pos.lng, fuel, radius], { interval: 30 * 60e3 });
 
@@ -54,11 +57,12 @@ export default function GasCard({ pos }) {
             );
           }
           const top = list.slice(0, 6);
+          const shown = more ? top : top.slice(0, GAS_SHOW);
           const avg = Math.round(list.reduce((s, o) => s + o.price, 0) / list.length);
           return (
             <>
               <ol className="gas-list">
-                {top.map((o, i) => (
+                {shown.map((o, i) => (
                   <li key={o.id}>
                     <span className="gas-rank">{i + 1}</span>
                     <span className="gas-name">
@@ -72,6 +76,11 @@ export default function GasCard({ pos }) {
                   </li>
                 ))}
               </ol>
+              {top.length > GAS_SHOW && (
+                <button type="button" className="btn btn-sm btn-block" onClick={() => setMore(!more)} aria-expanded={more}>
+                  {more ? '접기' : `${top.length - GAS_SHOW}곳 더 보기`}
+                </button>
+              )}
               <p className="card-foot">
                 주변 {list.length}곳 평균 {won(avg)} · 1등이 평균보다 {won(avg - top[0].price)} 싸요 (50L면 {won((avg - top[0].price) * 50)})
               </p>

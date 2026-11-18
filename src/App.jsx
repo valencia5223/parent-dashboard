@@ -141,6 +141,11 @@ export default function App() {
     store(MTAB_KEY, id);
     window.scrollTo({ top: 0 });
   };
+  // PC: 위쪽 바로가기 줄을 누르면 그 카드로 스크롤 (slot 은 display: contents 라 안의 카드로 간다)
+  const jumpTo = (id) => {
+    const el = document.querySelector(`[data-card="${id}"] > *`);
+    if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
+  };
   const slot = (id) => `slot${mtab === id ? ' slot-on' : ''}`;
 
   let where;
@@ -180,13 +185,22 @@ export default function App() {
       </header>
 
       {pos ? (
+        <>
+        <nav className="jump-bar" aria-label="카드로 바로 가기">
+          {CARD_TABS.map((t) => (
+            <button key={t.id} type="button" onClick={() => jumpTo(t.id)}>
+              <span aria-hidden>{t.icon}</span> {t.label}
+            </button>
+          ))}
+        </nav>
         <main className="grid" key={refreshKey}>
-          <div className={slot('weather')}><WeatherCard pos={pos} /></div>
-          <div className={slot('transit')}><TransitCard pos={pos} /></div>
-          <div className={slot('gas')}><GasCard pos={pos} /></div>
-          <div className={slot('apt')}><AptCard /></div>
-          <div className={slot('health')}><HealthCard pos={pos} /></div>
+          <div className={slot('weather')} data-card="weather"><WeatherCard pos={pos} /></div>
+          <div className={slot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
+          <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
+          <div className={slot('apt')} data-card="apt"><AptCard /></div>
+          <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
         </main>
+        </>
       ) : (
         <div className="empty big">
           <p>위치를 확인하고 있어요. 위치 사용을 묻는 창이 뜨면 &lsquo;허용&rsquo;을 눌러 주세요.</p>

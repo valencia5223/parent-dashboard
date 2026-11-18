@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { fetchAir, fetchWeather, useFetch } from '../api.js';
 import Card, { Body } from './Card.jsx';
 import { AirMini, airTips } from './AirSection.jsx';
@@ -31,7 +32,10 @@ const r = (v) => Math.round(v);
 const DAYS = ['일', '월', '화', '수', '목', '금', '토'];
 
 // 주간 날씨: 요일 · 하늘 · 비 확률 · 최저~최고(이번 주 전체 범위 안에서 막대로)
+const WEEK_SHOW = 4; // 처음에 보여 줄 날 수 (나머지는 '더 보기')
+
 function Week({ d }) {
+  const [all, setAll] = useState(false);
   const lo = Math.min(...d.temperature_2m_min);
   const hi = Math.max(...d.temperature_2m_max);
   const span = Math.max(1, hi - lo);
@@ -39,7 +43,7 @@ function Week({ d }) {
     <div className="week">
       <h3 className="week-title">주간 날씨</h3>
       <ol className="week-list">
-        {d.time.map((day, i) => {
+        {d.time.slice(0, all ? d.time.length : WEEK_SHOW).map((day, i) => {
           const dow = new Date(`${day}T00:00:00Z`).getUTCDay();
           const name = i === 0 ? '오늘' : i === 1 ? '내일' : DAYS[dow];
           const rain = d.precipitation_probability_max[i] ?? 0;
@@ -60,6 +64,11 @@ function Week({ d }) {
           );
         })}
       </ol>
+      {d.time.length > WEEK_SHOW && (
+        <button type="button" className="btn btn-sm btn-block" onClick={() => setAll(!all)} aria-expanded={all}>
+          {all ? '접기' : `${d.time.length - WEEK_SHOW}일 더 보기`}
+        </button>
+      )}
     </div>
   );
 }
