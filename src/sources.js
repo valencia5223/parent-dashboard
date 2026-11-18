@@ -46,10 +46,10 @@ async function cached(key, ttlMs, fn, { persist = false } = {}) {
   }
 }
 
-async function getText(url) {
+async function getText(url, init = {}) {
   let res;
   try {
-    res = await fetch(url, { signal: AbortSignal.timeout(15000) });
+    res = await fetch(url, { ...init, signal: AbortSignal.timeout(15000) });
   } catch {
     throw new FetchError('인터넷 연결을 확인해 주세요', 'NETWORK');
   }
@@ -432,7 +432,8 @@ export function fetchSubwayArrivals(station) {
   const key = subwayKey();
   if (!key) return Promise.reject(needKey('서울 열린데이터광장 실시간 지하철'));
   return cached(`subarr:${station}`, 20e3, async () => {
-    const text = await getText(`/api/subway/${encodeURIComponent(key)}/json/realtimeStationArrival/0/30/${encodeURIComponent(station)}`);
+    // 끝의 ?_= 는 매번 다른 주소로 만들어, 중계 설정을 고치기 전 브라우저가 기억한 301(http 로 이동 → 차단)을 피한다
+    const text = await getText(`/api/subway/${encodeURIComponent(key)}/json/realtimeStationArrival/0/30/${encodeURIComponent(station)}?_=${Date.now()}`, { cache: 'no-store' });
     let j;
     try { j = JSON.parse(text); } catch { throw new FetchError('지하철 정보를 읽지 못했어요'); }
     const err = j.errorMessage || j;
