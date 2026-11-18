@@ -454,7 +454,7 @@ export function fetchSubwayArrivals(station) {
       line: String(t.subwayId),
       dir: t.updnLine || '', // 상행·하행(2호선은 내선·외선)
       dest: t.bstatnNm || (t.trainLineNm || '').split('행')[0],
-      way: (t.trainLineNm || '').split('-')[1]?.trim() || '', // '대야미방면'
+      way: ((t.trainLineNm || '').split('-')[1] || '').replace(/\(.*\)/, '').trim(), // '대야미방면' ('(급행)' 은 kind 로)
       kind: t.btrainSttus && t.btrainSttus !== '일반' ? t.btrainSttus : '', // 급행 등
       sec: num(t.barvlDt) || 0,
       at: t.recptnDt ? Date.parse(t.recptnDt.replace(' ', 'T') + '+09:00') : null,
