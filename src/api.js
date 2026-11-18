@@ -4,17 +4,44 @@ import { FetchError, cached } from './sources.js';
 
 export { fetchStations, fetchArrivals, fetchGas, fetchApt, fetchAptList, loadRegions, DEFAULT_APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchSubwayStations, fetchSubwayArrivals, SUBWAY_LINES } from './sources.js';
 
-export async function getJSON(url) {
+// AbortSignal.timeout 이 없는 오래된 핸드폰 브라우저도 있어서 직접 만든다
+function timeoutSignal(ms) {
+  if (typeof AbortSignal !== 'undefined' && AbortSignal.timeout) return AbortSignal.timeout(ms);
+  const c = new AbortController();
+  setTimeout(() => c.abort(), ms);
+  return c.signal;
+}
+
+export async function getJSON(url, { timeout = 20000 } = {}) {
   let res;
   try {
-    res = await fetch(url, { signal: AbortSignal.timeout(20000) });
-  } catch {
-    throw new FetchError('인터넷 연결을 확인해 주세요', 'NETWORK');
+    res = await fetch(url, { signal: timeoutSignal(timeout) });
+  } catch (e) {
+    throw new FetchError(e?.name === 'TimeoutError' || e?.name === 'AbortError'
+      ? '응답이 너무 늦어요. 잠시 뒤 다시 눌러 주세요'
+      : '인터넷 연결을 확인해 주세요', 'NETWORK');
   }
   let body = null;
   try { body = await res.json(); } catch { /* 빈 응답 */ }
-  if (!res.ok) throw new FetchError(body?.error || `불러오지 못했어요 (${res.status})`, body?.code);
+  if (!res.ok) {
+    // Open-Meteo 는 { error: true, reason: '...' } 로 알려 준다
+    const msg = typeof body?.error === 'string' ? body.error : body?.reason;
+    throw new FetchError(res.status === 429 ? '요청이 많아 잠시 막혔어요(429)' : `${msg || '불러오지 못했어요'} (${res.status})`, body?.code);
+  }
   return body;
+}
+
+// Open-Meteo 를 핸드폰에서 바로 부르면 통신사 망(여러 사람이 같은 IP 를 씀)에서 막히거나 늦을 때가 있다.
+// 8초 안에 안 되면 우리 사이트를 거쳐(render.yaml 의 /api/meteo/* rewrite) 한 번 더 부른다.
+async function meteo(host, path) {
+  try {
+    return await getJSON(`https://${host}${path}`, { timeout: 8000 });
+  } catch (first) {
+    let j = null;
+    try { j = await getJSON(`/api/meteo/${host}${path}`); } catch { /* 처음 오류를 보여 준다 */ }
+    if (!j?.current) throw first; // 중계가 빠져 index.html 이 오면 json 이 아니다
+    return j;
+  }
 }
 
 // 날씨·미세먼지는 키 없이 브라우저에서 바로 (Open-Meteo)
@@ -42,7 +69,7 @@ function getWeather(lat, lng) {
     daily: 'temperature_2m_max,temperature_2m_min,precipitation_probability_max,weather_code,sunrise,sunset',
     wind_speed_unit: 'ms',
   });
-  return getJSON(`https://api.open-meteo.com/v1/forecast?${q}`);
+  return meteo('api.open-meteo.com', `/v1/forecast?${q}`);
 }
 
 function getAir(lat, lng) {
@@ -50,7 +77,7 @@ function getAir(lat, lng) {
     latitude: lat, longitude: lng, timezone: 'Asia/Seoul', forecast_days: '7', // 주간 날씨까지
     current: 'pm10,pm2_5', hourly: 'pm10,pm2_5',
   });
-  return getJSON(`https://air-quality-api.open-meteo.com/v1/air-quality?${q}`);
+  return meteo('air-quality-api.open-meteo.com', `/v1/air-quality?${q}`);
 }
 
 export async function reverseGeocode({ lat, lng }) {
