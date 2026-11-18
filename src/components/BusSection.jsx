@@ -54,20 +54,56 @@ function Arrivals({ station }) {
   );
 }
 
+// 즐겨찾는 정류장: 이 기기에 저장. 지금 위치와 상관없이 맨 앞에 보여 준다.
+const FAV_KEY = 'pd_bus_favs';
+const loadFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch { return []; } };
+const saveFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } };
+// 가까운 두 점 사이 거리(m), 동네 안에서는 이 정도 근사로 충분
+const meters = (a, b) => Math.round(Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 88000));
+const distText = (m) => (m == null ? '' : m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`);
+
+// 즐겨찾기(가까운 순) → 나머지 주변 정류장(가까운 순)
+function arrange(nearby, favs, pos) {
+  const near = new Map(nearby.map((s) => [s.id, s]));
+  const favList = favs
+    .map((f) => {
+      const s = near.get(f.id) || f; // 주변 목록에 있으면 새 정보로
+      const distance = near.has(f.id) ? s.distance : (s.lat != null ? meters(s, pos) : null);
+      return { ...s, distance, fav: true };
+    })
+    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+  const favIds = new Set(favs.map((f) => f.id));
+  return [...favList, ...nearby.filter((s) => !favIds.has(s.id))];
+}
+
 // 버스·지하철 카드(TransitCard)의 '버스' 탭
 export default function BusSection({ pos }) {
   const stations = useFetch(() => fetchStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
   const [allStops, setAllStops] = useState(false);
+  const [favs, setFavs] = useState(loadFavs);
 
-  // 위치가 바뀌면 가장 가까운 정류장으로 돌아간다
+  // 위치가 바뀌면 맨 앞(즐겨찾기 또는 가장 가까운) 정류장으로 돌아간다
   useEffect(() => { setPicked(null); setAllStops(false); }, [pos.lat, pos.lng]);
+
+  const toggleFav = (s) => {
+    setFavs((list) => {
+      const next = list.some((f) => f.id === s.id)
+        ? list.filter((f) => f.id !== s.id)
+        : [...list, { id: s.id, name: s.name, no: s.no, toward: s.toward, lat: s.lat, lng: s.lng }];
+      saveFavs(next);
+      return next;
+    });
+    setPicked(s.id); // 별을 눌러 순서가 바뀌어도 보던 정류장을 그대로
+  };
 
   return (
       <Body state={stations} lines={4}>
-        {(list) => {
+        {(nearby) => {
+          const list = arrange(nearby, favs, pos);
           if (list.length === 0) return <p className="empty">주변 500m 안에 정류장을 찾지 못했어요</p>;
           const station = list.find((s) => s.id === picked) || list[0];
+          const isFav = favs.some((f) => f.id === station.id);
           // 고른 정류장이 접힌 쪽에 있어도 보이게
           const shown = allStops ? list : list.filter((s, i) => i < STOP_SHOW || s.id === station.id);
           return (
@@ -82,17 +118,31 @@ export default function BusSection({ pos }) {
                     className={`stop${s.id === station.id ? ' stop-on' : ''}`}
                     onClick={() => setPicked(s.id)}
                   >
-                    <span className="stop-name">{s.name}</span>
+                    <span className="stop-name">{s.fav && <span className="stop-star" aria-label="즐겨찾기">★ </span>}{s.name}</span>
                     {s.toward && <span className="stop-dir">→ {s.toward} 방면</span>}
-                    <small>{s.distance != null ? `${s.distance}m` : ''}{s.no ? ` · ${s.no}` : ''}</small>
+                    <small>{[distText(s.distance), s.no].filter(Boolean).join(' · ')}</small>
                   </button>
                 ))}
               </div>
               {list.length > STOP_SHOW && (
                 <button type="button" className="btn btn-sm btn-block" onClick={() => setAllStops(!allStops)} aria-expanded={allStops}>
-                  {allStops ? '정류장 접기' : `주변 정류장 ${list.length - STOP_SHOW}곳 더 보기`}
+                  {allStops ? '정류장 접기' : `정류장 ${list.length - STOP_SHOW}곳 더 보기`}
                 </button>
               )}
+              <div className="stop-head">
+                <p>
+                  <strong>{station.name}</strong>
+                  {station.toward && <small> {station.toward} 방면</small>}
+                </p>
+                <button
+                  type="button"
+                  className={`btn btn-sm btn-fav${isFav ? ' btn-fav-on' : ''}`}
+                  onClick={() => toggleFav(station)}
+                  aria-pressed={isFav}
+                >
+                  {isFav ? '★ 즐겨찾기 됨' : '☆ 즐겨찾기'}
+                </button>
+              </div>
               <Arrivals key={station.id} station={station} />
             </>
           );

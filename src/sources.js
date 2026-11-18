@@ -124,7 +124,7 @@ function gbisList(text, listName) {
 export function fetchStations({ lat, lng }) {
   const key = dataKey();
   if (!key) return Promise.reject(needKey('공공데이터포털'));
-  return cached(`st2:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
+  return cached(`st3:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
     const q = new URLSearchParams({ serviceKey: key, x: String(lng), y: String(lat), format: 'json' });
     const list = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationAroundListv2?${q}`), 'busStationAroundList');
     const stations = list
@@ -134,6 +134,8 @@ export function fetchStations({ lat, lng }) {
         no: s.mobileNo ? String(s.mobileNo).trim() : '',
         region: s.regionName || '',
         distance: num(s.distance),
+        lat: num(s.y),
+        lng: num(s.x),
       }))
       // 버스가 서지 않는 곳(이름에 '미정차', 정류장 번호 00000)은 뺀다
       .filter((s) => !NO_STOP.test(s.name) && !/^0+$/.test(s.no))
