@@ -1,6 +1,8 @@
-import { useMemo, useState } from 'react';
-import { APTS, fetchApt, useFetch } from '../api.js';
+import { lazy, Suspense, useMemo, useState } from 'react';
+import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
 import Card, { Body } from './Card.jsx';
+
+const AptPicker = lazy(() => import('./AptPicker.jsx'));
 
 // 만원 → "6억 2,500만원"
 function price(man) {
@@ -40,27 +42,88 @@ function Change({ c }) {
   );
 }
 
-const saved = () => { try { return localStorage.getItem('pd_apt'); } catch { return null; } };
+// 단지 목록(pd_apts)과 고른 단지(pd_apt)는 이 기기에 기억한다. 목록 저장이 없으면 기본 단지.
+const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
+const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } };
+const loadApts = () => {
+  const v = loadJSON('pd_apts');
+  return Array.isArray(v) && v.every((a) => a?.id && a.lawd && a.dong && a.name) ? v : DEFAULT_APTS;
+};
+const savedId = () => { try { return localStorage.getItem('pd_apt'); } catch { return null; } };
 
-export default function AptCard() {
-  const [id, setId] = useState(() => (APTS.some((a) => a.id === saved()) ? saved() : APTS[0].id));
-  const state = useFetch(() => fetchApt(id), [id], { interval: 6 * 3600e3 });
-  const pick = (v) => { setId(v); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
+export default function AptCard({ pos }) {
+  const [apts, setApts] = useState(loadApts);
+  const [id, setId] = useState(() => (apts.some((a) => a.id === savedId()) ? savedId() : apts[0]?.id));
+  const [adding, setAdding] = useState(false);
+  const [mode, setMode] = useState(null); // 'rename' | 'remove'
+  const [draft, setDraft] = useState('');
+  const apt = apts.find((a) => a.id === id) || apts[0];
+  const state = useFetch(() => fetchApt(apt), [apt?.id, apt?.label], { interval: 6 * 3600e3, enabled: !!apt });
+
+  const pick = (v) => { setId(v); setMode(null); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
+  const update = (list) => { setApts(list); saveJSON('pd_apts', list); };
+  const add = (a) => {
+    if (!apts.some((x) => x.id === a.id)) update([...apts, a]);
+    pick(a.id);
+    setAdding(false);
+  };
+  const rename = (e) => {
+    e.preventDefault();
+    const label = draft.trim();
+    if (label) update(apts.map((a) => (a.id === apt.id ? { ...a, label } : a)));
+    setMode(null);
+  };
+  const remove = () => {
+    const list = apts.filter((a) => a.id !== apt.id);
+    update(list);
+    if (list[0]) pick(list[0].id); else setMode(null);
+  };
 
   return (
-    <Card title="아파트 실거래가" icon="🏠" state={state} onRefresh={state.reload}>
+    <Card title="아파트 실거래가" icon="🏠" state={apt ? state : null} onRefresh={apt ? state.reload : undefined}>
       <div className="chips" role="tablist" aria-label="단지 고르기">
-        {APTS.map((a) => (
-          <button key={a.id} type="button" role="tab" aria-selected={id === a.id} className={`chip${id === a.id ? ' chip-on' : ''}`} onClick={() => pick(a.id)}>
+        {apts.map((a) => (
+          <button key={a.id} type="button" role="tab" aria-selected={apt?.id === a.id} className={`chip${apt?.id === a.id ? ' chip-on' : ''}`} onClick={() => pick(a.id)}>
             {a.label}
           </button>
         ))}
+        <button type="button" className="chip chip-add" onClick={() => setAdding(true)}>＋ 단지 추가</button>
       </div>
-      {/* 단지를 바꾸는 동안에는 이전 단지 표 대신 뼈대를 보여 준다 */}
-      <Body state={state.data?.id === id ? state : { ...state, data: null }} lines={5}>
-        {(apt) => <AptBody key={apt.id} apt={apt} />}
-      </Body>
-      <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고)</p>
+
+      {!apt ? (
+        <div className="empty"><p>보고 싶은 아파트를 ‘＋ 단지 추가’로 넣어 주세요.</p></div>
+      ) : (
+        <>
+          {mode === 'rename' ? (
+            <form className="apt-manage" onSubmit={rename}>
+              <input value={draft} onChange={(e) => setDraft(e.target.value)} maxLength={20} aria-label="탭에 보일 이름" autoFocus />
+              <button type="submit" className="btn btn-sm btn-primary">저장</button>
+              <button type="button" className="btn btn-sm" onClick={() => setMode(null)}>취소</button>
+            </form>
+          ) : mode === 'remove' ? (
+            <div className="apt-manage apt-manage-warn">
+              <span>‘{apt.label}’ 탭을 뺄까요?</span>
+              <button type="button" className="btn btn-sm btn-danger" onClick={remove}>빼기</button>
+              <button type="button" className="btn btn-sm" onClick={() => setMode(null)}>취소</button>
+            </div>
+          ) : (
+            <div className="apt-manage">
+              <button type="button" className="btn btn-sm btn-quiet" onClick={() => { setDraft(apt.label); setMode('rename'); }}>✏️ 이름 바꾸기</button>
+              <button type="button" className="btn btn-sm btn-quiet" onClick={() => setMode('remove')}>✕ 탭에서 빼기</button>
+            </div>
+          )}
+          {/* 단지를 바꾸는 동안에는 이전 단지 표 대신 뼈대를 보여 준다 */}
+          <Body state={state.data?.id === apt.id ? state : { ...state, data: null }} lines={5}>
+            {(data) => <AptBody key={data.id} apt={{ ...data, label: apt.label }} />}
+          </Body>
+        </>
+      )}
+      <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고) · 단지 목록은 이 기기에만 저장돼요</p>
+      {adding && (
+        <Suspense fallback={null}>
+          <AptPicker pos={pos} existing={apts} onAdd={add} onClose={() => setAdding(false)} />
+        </Suspense>
+      )}
     </Card>
   );
 }
@@ -98,7 +161,7 @@ function AptBody({ apt }) {
 
   return (
     <>
-      <p className="apt-sub">{apt.label} · 군포시 {apt.dong} · 최근 1년 {valid.length}건</p>
+      <p className="apt-sub">{apt.label} · {apt.region} {apt.dong} · 최근 1년 {valid.length}건</p>
       <div className="apt-summary">
         {areas.map((g) => (
           <button

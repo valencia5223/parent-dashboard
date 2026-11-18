@@ -197,7 +197,7 @@ export default function App() {
           <div className={slot('weather')} data-card="weather"><WeatherCard pos={pos} /></div>
           <div className={slot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
           <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
-          <div className={slot('apt')} data-card="apt"><AptCard /></div>
+          <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
         </main>
         </>

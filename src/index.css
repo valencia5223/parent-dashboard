@@ -243,6 +243,23 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* 아파트 */
 .apt-sub { color: var(--text-body); font-weight: 600; }
+.chip-add { border-style: dashed; color: var(--primary); background: var(--bg-card); }
+.apt-manage { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: -4px; }
+.apt-manage input { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 12px; font: inherit; }
+.apt-manage input:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); }
+.apt-manage-warn span { flex: 1; font-weight: 700; }
+.btn-quiet { border-color: transparent; background: none; color: var(--text-sub); padding: 0 8px; min-height: 32px; font-size: 0.85rem; }
+.btn-danger { background: #dc2626; border-color: #dc2626; color: #fff; }
+.btn-danger:hover { background: #b91c1c; }
+.apt-regions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.apt-regions select, .apt-search {
+  min-height: 48px; border: 1px solid var(--border-color); border-radius: var(--radius-md);
+  padding: 0 12px; font: inherit; background: var(--bg-subtle); color: var(--text-body); min-width: 0;
+}
+.apt-regions select:focus, .apt-search:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); background: var(--bg-card); }
+.apt-pick-count { color: var(--text-sub); font-size: 0.9rem; font-weight: 600; }
+.apt-added { color: var(--primary); font-weight: 700; font-size: 0.85rem; }
+.place-item:disabled { cursor: default; }
 .apt-summary { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
 .apt-area { text-align: left; border: 1px solid var(--border-color); background: var(--bg-subtle); border-radius: var(--radius-md); padding: 12px 14px; display: flex; flex-direction: column; gap: 2px; }
 .apt-area strong { font-size: 1.3rem; }
@@ -281,7 +298,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   align-items: center;
   justify-content: center;
   padding: 16px;
-  z-index: 50;
+  z-index: 60;
 }
 .modal {
   background: var(--bg-card);

@@ -188,17 +188,24 @@ export function fetchGas({ lat, lng }, fuel, radius) {
 }
 
 // ---------- 아파트 매매 실거래가 (국토교통부) ----------
-// 단지 이름은 국토부 자료의 aptNm·umdNm 그대로(화면 이름과 다름). 군포시(41410) 한 번 받아 세 단지를 같이 거른다.
-//   삼익소월: 산본역 근처지만 법정동은 금정동, aptNm '삼익소월…'
+// 단지는 국토부 자료의 시군구 코드(lawd)·법정동(umdNm)·단지 이름(aptNm) 그대로 찾는다(화면 이름 label 과 다를 수 있음).
+// 사용자가 '단지 추가'로 고른 단지는 이 기기(localStorage pd_apts)에 저장되고, 저장이 없으면 아래 기본 단지를 쓴다.
+//   삼익소월: 산본역 근처지만 법정동은 금정동
 //   가야주공1차: 산본동 '가야주공' ('가야3주공' 은 다른 단지)
 //   한라주공2차: 산본동 '한라주공4-2' ('한라주공4' 는 1차)
-const LAWD = '41410';
-export const APTS = [
-  { id: 'soweol', label: '삼익소월', dong: '금정동', match: (n) => n.includes('삼익') && n.includes('소월') },
-  { id: 'gaya1', label: '가야주공1차', dong: '산본동', match: (n) => n === '가야주공' },
-  { id: 'halla2', label: '한라주공2차', dong: '산본동', match: (n) => n === '한라주공4-2' },
+export const DEFAULT_APTS = [
+  { id: 'soweol', label: '삼익소월', lawd: '41410', region: '군포시', dong: '금정동', name: '삼익소월' },
+  { id: 'gaya1', label: '가야주공1차', lawd: '41410', region: '군포시', dong: '산본동', name: '가야주공' },
+  { id: 'halla2', label: '한라주공2차', lawd: '41410', region: '군포시', dong: '산본동', name: '한라주공4-2' },
 ];
-const aptOf = (t) => APTS.find((a) => t.dong === a.dong && a.match(t.name));
+
+// 예전 캐시(세 단지만 걸러 저장하던 apt3:)는 지운다
+try {
+  for (let i = localStorage.length - 1; i >= 0; i--) {
+    const k = localStorage.key(i);
+    if (k?.startsWith('pd_cache:apt3:')) localStorage.removeItem(k);
+  }
+} catch { /* 저장소를 못 써도 괜찮음 */ }
 
 function recentMonths(n) {
   const now = new Date(Date.now() + 9 * 3600e3); // 한국 시간
@@ -210,13 +217,29 @@ function recentMonths(n) {
   return out;
 }
 
-// 한 달치를 받아 위 단지들에 걸리는 줄만 단지 id 를 붙여 저장(지난달 이전은 하루, 최근 두 달은 3시간)
-// 단지를 바꿀 때는 캐시 이름(apt3)을 올릴 것
-function aptMonth(key, ym, isRecent) {
-  return cached(`apt3:${LAWD}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
+const tradeOf = (r) => {
+  const year = Number(r.dealYear ?? r['년']);
+  const month = Number(r.dealMonth ?? r['월']);
+  const day = Number(r.dealDay ?? r['일']);
+  return {
+    name: (r.aptNm ?? r['아파트'] ?? '').trim(),
+    dong: (r.umdNm ?? r['법정동'] ?? '').trim(),
+    amount: Number(String(r.dealAmount ?? r['거래금액'] ?? '').replace(/[,\s]/g, '')) || null, // 만원
+    date: `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+    area: num(r.excluUseAr ?? r['전용면적']),
+    floor: num(r.floor ?? r['층']),
+    built: num(r.buildYear),
+    canceled: (r.cdealType ?? r['해제여부'] ?? '').trim() === 'O',
+    kind: (r.dealingGbn ?? '').trim(), // 중개거래 / 직거래
+  };
+};
+
+// 시군구 하나의 한 달치 거래 전체. 커서 localStorage 에는 두지 않고 메모리에만(지난달 이전은 하루, 최근 두 달은 3시간)
+function rtmsMonth(key, lawd, ym, isRecent) {
+  return cached(`rtms:${lawd}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
     const rows = [];
     for (let page = 1; page <= 5; page++) {
-      const q = new URLSearchParams({ serviceKey: key, LAWD_CD: LAWD, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });
+      const q = new URLSearchParams({ serviceKey: key, LAWD_CD: lawd, DEAL_YMD: ym, numOfRows: '1000', pageNo: String(page) });
       const text = await getText(`/api/rtms/RTMSDataSvcAptTrade/getRTMSDataSvcAptTrade?${q}`);
       checkGatewayError(text);
       const code = xmlValue(text, 'resultCode');
@@ -226,36 +249,59 @@ function aptMonth(key, ym, isRecent) {
       const total = Number(xmlValue(text, 'totalCount') || 0);
       if (rows.length >= total || items.length === 0) break;
     }
-    return rows
-      .map((r) => ({
-        name: (r.aptNm ?? r['아파트'] ?? '').trim(),
-        dong: (r.umdNm ?? r['법정동'] ?? '').trim(),
-        amount: Number(String(r.dealAmount ?? r['거래금액'] ?? '').replace(/[,\s]/g, '')) || null, // 만원
-        year: Number(r.dealYear ?? r['년']),
-        month: Number(r.dealMonth ?? r['월']),
-        day: Number(r.dealDay ?? r['일']),
-        area: num(r.excluUseAr ?? r['전용면적']),
-        floor: num(r.floor ?? r['층']),
-        canceled: (r.cdealType ?? r['해제여부'] ?? '').trim() === 'O',
-        kind: (r.dealingGbn ?? '').trim(), // 중개거래 / 직거래
-      }))
-      .map((t) => ({ ...t, apt: aptOf(t)?.id }))
-      .filter((t) => t.apt);
-  }, { persist: true });
+    return rows.map(tradeOf);
+  });
 }
 
-export async function fetchApt(id) {
+// 단지 하나의 최근 16개월 거래(화면 목록은 13개월, 1년 전 대비 변화를 구하려고 3개월 더).
+// 걸러 낸 결과만 3시간 동안 이 기기에 저장해 다시 열 때 바로 보인다.
+export async function fetchApt(apt) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
-  const apt = APTS.find((a) => a.id === id) || APTS[0];
-  // 화면 목록은 최근 13개월, 1년 전 대비 변화를 구하려고 3개월 더(16개월) 받는다
   const months = recentMonths(16);
-  const monthly = await Promise.all(months.map((ym, i) => aptMonth(key, ym, i < 2)));
-  const trades = monthly.flat()
-    .filter((t) => t.apt === apt.id)
-    .map((t) => ({ ...t, date: `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` }))
-    .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
-  return { id: apt.id, label: apt.label, dong: apt.dong, from: months[12], to: months[0], trades };
+  const trades = await cached(`apt4:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
+    const monthly = await Promise.all(months.map((ym, i) => rtmsMonth(key, apt.lawd, ym, i < 2)));
+    return monthly.flat()
+      .filter((t) => t.dong === apt.dong && t.name === apt.name)
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
+  }, { persist: true });
+  return { id: apt.id, label: apt.label, region: apt.region, dong: apt.dong, from: months[12], to: months[0], trades };
+}
+
+// '단지 추가' 목록: 시군구 하나에서 최근 1년 동안 거래가 있었던 단지(동·이름별 건수·최근 거래일·지은 해)
+export async function fetchAptList(lawd) {
+  const key = dataKey();
+  if (!key) throw needKey('공공데이터포털');
+  const monthly = await Promise.all(recentMonths(12).map((ym, i) => rtmsMonth(key, lawd, ym, i < 2)));
+  const map = new Map();
+  for (const t of monthly.flat()) {
+    if (!t.name || t.canceled) continue;
+    const k = `${t.dong}|${t.name}`;
+    const o = map.get(k) || { dong: t.dong, name: t.name, count: 0, last: '', built: t.built };
+    o.count += 1;
+    if (t.date > o.last) o.last = t.date;
+    map.set(k, o);
+  }
+  return { lawd, list: [...map.values()].sort((a, b) => a.name.localeCompare(b.name, 'ko')) };
+}
+
+// 시·군·구 목록(법정 시군구 코드)과 행정동 중심점: 위치에서 가장 가까운 시·군·구를 기본으로 고른다.
+// regions.json 은 vuski/admdongkor 행정동 경계(2026-10)에서 뽑았고, 코드는 모두 실거래가 API 로 확인했다. '단지 추가'를 열 때만 불러온다.
+export async function loadRegions() {
+  const d = (await import('./regions.json')).default;
+  const sgg = d.sgg.map(([code, sido, name]) => ({ code, sido, name: name.replace(/^(.+?시)(.+구)$/, '$1 $2') }));
+  return {
+    sgg,
+    nearest(pos) {
+      let best = null;
+      let bd = Infinity;
+      for (const [lat, lng, i] of d.pts) {
+        const dd = (lat - pos.lat) ** 2 + ((lng - pos.lng) * 0.8) ** 2;
+        if (dd < bd) { bd = dd; best = sgg[i]; }
+      }
+      return best;
+    },
+  };
 }
 
 // ---------- 약국·응급실 (국립중앙의료원, 공공데이터포털 같은 키) ----------
