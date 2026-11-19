@@ -84,6 +84,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .card-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
 .card-head h2 { font-size: 1.2rem; font-weight: 800; display: flex; align-items: center; gap: 8px; }
 .card-icon { font-size: 1.3rem; }
+.svg-icon { width: 1.1em; height: 1.1em; display: inline-block; vertical-align: -0.18em; }
+.mtab-icon .svg-icon { width: 1.12em; height: 1em; vertical-align: top; }
 .card-tools { display: flex; gap: 6px; align-items: center; }
 .card-foot { color: var(--text-sub); font-size: 0.85rem; }
 .card > .card-foot:last-child { margin-top: auto; }

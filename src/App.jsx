@@ -9,6 +9,7 @@ import LifeCard from './components/LifeCard.jsx';
 import LibraryCard from './components/LibraryCard.jsx';
 import TourCard from './components/TourCard.jsx';
 import MoreSheet from './components/MoreSheet.jsx';
+import { LibraryIcon } from './components/icons.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
 import { initAccount, markDirty, useAccount } from './account.js';
 
@@ -127,7 +128,7 @@ const CARD_TABS = [
   { id: 'apt', label: '집값', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
   { id: 'life', label: '달력', icon: '📅' },
-  { id: 'library', label: '도서관', icon: '📚' },
+  { id: 'library', label: '도서관', icon: <LibraryIcon /> },
   { id: 'tour', label: '나들이', icon: '🎡' },
 ];
 const MTAB_KEY = 'pd_mtab';

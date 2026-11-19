@@ -3,6 +3,7 @@ import { useFetch } from '../api.js';
 import { markDirty } from '../account.js';
 import { bookAvailability, closedToday, fetchLibraries, fetchPopular, GENRES, searchBooks } from '../library.js';
 import Card, { Body, ErrorBox } from './Card.jsx';
+import { LibraryIcon } from './icons.jsx';
 
 // 도서관: 책 찾기(근처 어디서 빌릴 수 있나, 인기 대출 책) · 근처 도서관(오늘 여는지) · 읽고 싶은 책(계정 저장)
 const TABS = [
@@ -265,7 +266,7 @@ export default function LibraryCard({ pos }) {
   const shared = { favCodes, wish, onWish };
 
   return (
-    <Card title="도서관" icon="📚" onRefresh={() => setRefresh((n) => n + 1)}>
+    <Card title="도서관" icon={<LibraryIcon />} onRefresh={() => setRefresh((n) => n + 1)}>
       <div className="chips" role="tablist" aria-label="도서관 보기 고르기">
         {TABS.map((t) => (
           <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? ' chip-on' : ''}`} onClick={() => pick(t.id)}>
