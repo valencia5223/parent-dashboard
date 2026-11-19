@@ -4,6 +4,7 @@
 //   /api/gbis/*   → https://apis.data.go.kr/6410000/*   (경기도 버스)
 //   /api/rtms/*   → https://apis.data.go.kr/1613000/*   (국토부 실거래가)
 //   /api/opinet/* → https://www.opinet.co.kr/api/*     (오피넷)
+//   /api/lib/*    → http://data4library.kr/api/*      (도서관 정보나루, VITE_LIBRARY_KEY, src/library.js)
 //   /api/kma/*, /api/airkorea/* → 날씨·미세먼지 (src/weather.js)
 //   /api/seoulbus/* → http://ws.bus.go.kr/api/rest/*   (서울 버스, 공공데이터포털 키, http 만 됨)
 //   /api/seoulapi/* → http://openapi.seoul.go.kr:8088/* (서울 열린데이터광장: 지하철 시간표, 지하철 키)

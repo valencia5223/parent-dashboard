@@ -6,6 +6,7 @@ import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
 import LifeCard from './components/LifeCard.jsx';
+import LibraryCard from './components/LibraryCard.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
 import { initAccount, markDirty, useAccount } from './account.js';
 
@@ -123,6 +124,7 @@ const CARD_TABS = [
   { id: 'gas', label: '주유', icon: '⛽' },
   { id: 'apt', label: '집값', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
+  { id: 'library', label: '도서관', icon: '📚' },
   { id: 'life', label: '달력', icon: '📅' },
 ];
 const MTAB_KEY = 'pd_mtab';
@@ -256,6 +258,7 @@ function Dashboard() {
           <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
           <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
+          <div className={slot('library')} data-card="library"><LibraryCard pos={pos} /></div>
           <div className={slot('life')} data-card="life"><LifeCard /></div>
         </main>
         </>
@@ -279,7 +282,7 @@ function Dashboard() {
 
       <footer className="app-foot">
         <button type="button" className="btn" onClick={() => setRefreshKey((k) => k + 1)}>전체 새로고침</button>
-        <p>날씨 기상청 · 미세먼지 에어코리아 · 버스 경기도 버스정보 · 지하철 서울 열린데이터광장·OpenStreetMap · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 지도 검색 OpenStreetMap</p>
+        <p>날씨 기상청 · 미세먼지 에어코리아 · 버스 경기도 버스정보 · 지하철 서울 열린데이터광장·OpenStreetMap · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 도서관 도서관 정보나루 · 장소 검색 카카오맵</p>
       </footer>
 
       {picking && (
