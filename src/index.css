@@ -274,6 +274,68 @@ button { font: inherit; color: inherit; cursor: pointer; }
 
 /* 아파트 */
 .apt-sub { color: var(--text-body); font-weight: 600; }
+/* 생활 달력 */
+.life-today { display: flex; flex-direction: column; gap: 4px; background: var(--primary-soft); border-radius: var(--radius-md); padding: 12px 14px; }
+.life-date { font-size: 1.02rem; color: var(--text-body); }
+.life-date strong { font-weight: 800; color: var(--text-main, inherit); }
+.life-hol { color: #dc2626; font-weight: 700; }
+.life-trash { font-size: 0.95rem; }
+.life-trash-next, .life-sub { color: var(--text-sub); font-size: 0.9rem; }
+.life-grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+@media (min-width: 900px) { .life-grid { grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr); align-items: start; } }
+.life-side { display: flex; flex-direction: column; gap: 16px; }
+.life-sec-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+.month { display: flex; flex-direction: column; gap: 8px; }
+.month-head { display: flex; align-items: center; gap: 8px; }
+.month-head h3 { font-size: 1.1rem; font-weight: 800; min-width: 8.5em; text-align: center; }
+.month-head .btn-icon { width: 40px; min-height: 40px; font-size: 1.5rem; }
+.month-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.month-dow { text-align: center; font-size: 0.8rem; font-weight: 700; color: var(--text-sub); padding: 2px 0; }
+.month-day {
+  min-height: 56px; border: 1px solid transparent; border-radius: var(--radius-md); background: none; font: inherit; cursor: pointer;
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 1px; padding: 4px 1px; color: var(--text-body); overflow: hidden;
+}
+.month-day:hover { background: var(--bg-subtle); }
+.month-num { font-weight: 700; font-size: 0.98rem; line-height: 1.2; }
+.month-hol { font-size: 0.62rem; line-height: 1.1; color: #dc2626; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.month-dots { font-size: 0.7rem; line-height: 1; letter-spacing: -1px; }
+.is-sun, .is-sun .month-num { color: #dc2626; }
+.is-sat, .is-sat .month-num { color: #2563eb; }
+.month-day.is-today .month-num { background: var(--primary); color: #fff; border-radius: 999px; padding: 0 7px; }
+.month-day.is-picked { border-color: var(--primary); background: var(--primary-soft); }
+.month-picked { border-top: 1px solid var(--border-color); padding-top: 10px; display: flex; flex-direction: column; gap: 6px; align-items: flex-start; }
+.month-picked-title { font-weight: 800; }
+.month-picked-title small { color: var(--text-sub); font-weight: 600; margin-left: 4px; }
+.ev-list { display: flex; flex-direction: column; gap: 6px; list-style: none; padding: 0; margin: 0; }
+.ev-row {
+  width: 100%; display: flex; align-items: center; gap: 10px; text-align: left; font: inherit; color: var(--text-body);
+  border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); padding: 8px 12px; cursor: pointer;
+}
+button.ev-row:hover { border-color: var(--primary); }
+.ev-static { cursor: default; }
+.ev-past { opacity: 0.6; }
+.ev-icon { font-size: 1.3rem; }
+.ev-title { flex: 1; min-width: 0; font-weight: 700; display: flex; flex-wrap: wrap; column-gap: 6px; align-items: baseline; }
+.ev-title small { font-weight: 600; color: var(--primary); font-size: 0.82rem; }
+.ev-title .ev-when { flex-basis: 100%; color: var(--text-sub); font-weight: 500; }
+.ev-tag { font-size: 0.75rem; font-weight: 700; color: #7c3aed; background: #ede9fe; border-radius: 999px; padding: 1px 8px; }
+.dday { font-weight: 800; font-size: 0.95rem; color: var(--text-sub); white-space: nowrap; }
+.dday-soon { color: #dc2626; }
+.trash-set { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+.trash-row { display: flex; flex-direction: column; gap: 6px; }
+.trash-name { font-weight: 700; }
+.trash-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.day-chip { min-height: 40px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); font: inherit; font-weight: 700; cursor: pointer; color: var(--text-body); }
+.day-chip.is-sun { color: #dc2626; }
+.day-chip.is-sat { color: #2563eb; }
+.day-chip-on, .day-chip-on.is-sun, .day-chip-on.is-sat { background: var(--primary); border-color: var(--primary); color: #fff; }
+.life-form .field { display: flex; flex-direction: column; gap: 6px; font-weight: 700; }
+.life-form .field input { min-height: 48px; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 12px; font: inherit; font-weight: 500; background: var(--bg-subtle); }
+.life-form .field input:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); background: var(--bg-card); }
+.life-form .check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
+.life-form .check input { width: 22px; height: 22px; }
+.form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.form-save { margin-left: auto; min-width: 96px; }
 .chip-add { border-style: dashed; color: var(--primary); background: var(--bg-card); }
 .apt-manage { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin-top: -4px; }
 .apt-manage input { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 12px; font: inherit; }
@@ -403,7 +465,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
   .slot.slot-on { display: block; }
   .app { padding-bottom: calc(96px + env(safe-area-inset-bottom)) !important; }
   .mobile-tabbar {
-    display: grid; grid-template-columns: repeat(5, 1fr);
+    display: grid; grid-template-columns: repeat(6, 1fr);
     position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
     background: var(--bg-card); border-top: 1px solid var(--border-color);
     padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
@@ -413,8 +475,9 @@ button { font: inherit; color: inherit; cursor: pointer; }
     border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
     padding: 6px 0; min-height: 56px; border-radius: var(--radius-md); color: var(--text-sub); font: inherit; cursor: pointer;
   }
+  .life-grid .month { order: 2; }
   .mobile-tabbar .mtab-icon { font-size: 1.45rem; line-height: 1; filter: grayscale(0.6); opacity: 0.75; }
-  .mobile-tabbar .mtab-label { font-size: 0.8rem; font-weight: 700; }
+  .mobile-tabbar .mtab-label { font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
   .mobile-tabbar button.on { color: var(--primary); background: var(--primary-soft); }
   .mobile-tabbar button.on .mtab-icon { filter: none; opacity: 1; }
   /* 약국·응급실: 핸드폰에서는 전화·길찾기 버튼을 작게 */

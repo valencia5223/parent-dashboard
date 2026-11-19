@@ -5,6 +5,7 @@ import TransitCard from './components/TransitCard.jsx';
 import GasCard from './components/GasCard.jsx';
 import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
+import LifeCard from './components/LifeCard.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
 
 // 위치를 못 받으면 산본역 근처로
@@ -108,6 +109,7 @@ const CARD_TABS = [
   { id: 'gas', label: '주유', icon: '⛽' },
   { id: 'apt', label: '집값', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
+  { id: 'life', label: '달력', icon: '📅' },
 ];
 const MTAB_KEY = 'pd_mtab';
 
@@ -210,6 +212,7 @@ export default function App() {
           <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
           <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
+          <div className={slot('life')} data-card="life"><LifeCard /></div>
         </main>
         </>
       ) : (
