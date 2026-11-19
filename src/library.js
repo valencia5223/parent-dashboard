@@ -8,6 +8,7 @@
 //   loanItemSrch   지역 인기 대출 책 — 하루
 import { cached, FetchError, getText, num, toArr } from './sources.js';
 import { HOLIDAYS } from './holidays.js';
+import { pyxisAvailability, pyxisLibraries, systemsNear } from './pyxisLibs.js';
 
 const libKey = () => (import.meta.env.VITE_LIBRARY_KEY || '').trim();
 export const hasLibraryKey = () => !!libKey();
@@ -86,12 +87,23 @@ function sidoLibraries(region) {
   }, { persist: true });
 }
 
-// 근처 도서관(10km 안, 가까운 순)
+// 근처 도서관(10km 안, 가까운 순). 정보나루 + 정보나루에 없는 시의 도서관 홈페이지 자료(pyxisLibs.js)
 export async function fetchLibraries(pos) {
   const regions = await sidosNear(pos);
-  const lists = await Promise.all(regions.map((r) => sidoLibraries(r)));
+  const systems = systemsNear(pos);
+  const [main, extra] = await Promise.all([
+    Promise.allSettled(regions.map((r) => sidoLibraries(r))),
+    Promise.allSettled(systems.map((s) => pyxisLibraries(s))),
+  ]);
+  const extraLibs = extra.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  const mainLibs = main.flatMap((r) => (r.status === 'fulfilled' ? r.value : []));
+  if (mainLibs.length === 0 && extraLibs.length === 0) {
+    const err = main.find((r) => r.status === 'rejected');
+    if (err) throw err.reason;
+  }
+  const replaced = new Set(systems.filter((s, i) => extra[i].status === 'fulfilled').flatMap((s) => s.replaces));
   const seen = new Set();
-  return lists.flat()
+  return [...mainLibs.filter((l) => !replaced.has(l.code)), ...extraLibs]
     .filter((l) => l.lat && l.lng && !seen.has(l.code) && seen.add(l.code))
     .map((l) => ({ ...l, distance: distKm(pos, l) }))
     .filter((l) => l.distance <= 10)
@@ -161,17 +173,25 @@ function bookExist(code, isbn) {
 }
 
 // 근처에서 이 책을 가진 도서관과 지금 빌릴 수 있는지. 즐겨찾는 도서관 → 가까운 곳 순으로 최대 limit 곳만 대출 여부를 묻는다.
+// 도서관 홈페이지 자료(군포 등)는 한 번에 모든 지점의 실시간 상태가 와서 따로 세지 않는다.
 export async function bookAvailability(pos, isbn, favCodes = [], limit = 6) {
   const [near, regions] = await Promise.all([fetchLibraries(pos), sidosNear(pos)]);
-  const codes = new Set((await Promise.all(regions.map((r) => holders(isbn, r).catch(() => [])))).flat());
+  const systems = systemsNear(pos);
+  const [codeLists, extra] = await Promise.all([
+    Promise.all(regions.map((r) => holders(isbn, r).catch(() => []))),
+    Promise.all(systems.map((s) => pyxisAvailability(s, isbn).catch(() => ({})))),
+  ]);
+  const codes = new Set(codeLists.flat());
+  const live = Object.assign({}, ...extra);
   const fav = new Set(favCodes);
-  const have = near
-    .filter((l) => codes.has(l.code))
-    .sort((a, b) => (fav.has(b.code) - fav.has(a.code)) || a.distance - b.distance);
+  const byFavDist = (a, b) => (fav.has(b.code) - fav.has(a.code)) || a.distance - b.distance;
+  const liveLibs = near.filter((l) => live[l.code]).map((l) => ({ ...l, ...live[l.code] }));
+  const have = near.filter((l) => codes.has(l.code) && !live[l.code] && !String(l.code).includes(':')).sort(byFavDist);
   const checked = await Promise.all(have.slice(0, limit).map(async (l) => {
     try { return { ...l, ...(await bookExist(l.code, isbn)) }; } catch { return { ...l, has: true, available: null }; }
   }));
-  return { libs: [...checked, ...have.slice(limit).map((l) => ({ ...l, has: true, available: null }))], nearCount: near.length };
+  const known = [...liveLibs, ...checked].sort(byFavDist);
+  return { libs: [...known, ...have.slice(limit).map((l) => ({ ...l, has: true, available: null }))], nearCount: near.length };
 }
 
 // ---------- 오늘 휴관인지 (휴관일 글은 도서관마다 제각각이라 흔한 꼴만 읽는다) ----------

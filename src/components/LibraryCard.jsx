@@ -32,8 +32,10 @@ function useSyncedList(key) {
   return [list, save];
 }
 
+// 도서관 홈페이지 자료는 실제 휴관 날짜(todayClosed), 정보나루는 휴관일 글로 계산
+const isClosedToday = (lib) => (lib.todayClosed != null ? lib.todayClosed : closedToday(lib.closed));
 function TodayTag({ lib }) {
-  const c = closedToday(lib.closed);
+  const c = isClosedToday(lib);
   if (c === true) return <span className="med-closing">오늘 휴관</span>;
   if (c === false) return <span className="med-open">오늘 열어요</span>;
   return null;
@@ -51,7 +53,7 @@ function LibraryRow({ lib, fav, onFav }) {
           <p className="med-name">{lib.name}</p>
           <p className="med-meta">
             <TodayTag lib={lib} />
-            {closedToday(lib.closed) != null && ' · '}
+            {isClosedToday(lib) != null && ' · '}
             {km(lib.distance)}
           </p>
         </button>
@@ -122,10 +124,10 @@ function Availability({ pos, isbn, favCodes }) {
                       <p className="med-name">{favCodes.includes(l.code) && '★ '}{l.name}</p>
                       <p className="med-meta">
                         {l.available === true && <span className="med-open">대출 가능</span>}
-                        {l.available === false && <span className="med-closing">{l.has ? '대출 중' : '없음'}</span>}
+                        {l.available === false && <span className="med-closing">{l.state || (l.has ? '대출 중' : '없음')}</span>}
                         {l.available == null && <span>대출 여부 확인 못 함</span>}
                         {' · '}{km(l.distance)}
-                        {closedToday(l.closed) === true && ' · 오늘 휴관'}
+                        {isClosedToday(l) === true && ' · 오늘 휴관'}
                       </p>
                     </div>
                     <div className="med-actions">
@@ -276,7 +278,7 @@ export default function LibraryCard({ pos }) {
         {tab === 'find' && <Finder pos={pos} {...shared} />}
         {tab === 'wish' && <Wish pos={pos} {...shared} />}
       </div>
-      <p className="card-foot">도서관·소장 정보: 도서관 정보나루</p>
+      <p className="card-foot">도서관·소장 정보: 도서관 정보나루 · 군포시립도서관(산본·당동 등)은 군포시도서관 홈페이지</p>
     </Card>
   );
 }
