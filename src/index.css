@@ -52,6 +52,12 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .account-msg.ok { color: var(--text-main); background: var(--bg-subtle); }
 .account-confirm { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 12px; }
 .account .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.auth-page { min-height: 100vh; min-height: 100dvh; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px 32px; }
+.auth-box { width: 100%; max-width: 420px; background: var(--bg-card); border: 1px solid var(--border-color); border-radius: var(--radius-lg); padding: 28px 22px; display: flex; flex-direction: column; gap: 12px; text-align: center; box-shadow: 0 10px 30px rgba(15, 23, 42, 0.06); }
+.auth-box h1 { font-size: 1.45rem; font-weight: 800; letter-spacing: -0.02em; }
+.auth-logo, .auth-wait { font-size: 2.6rem; line-height: 1; }
+.auth-sub { color: var(--text-sub); font-size: 0.95rem; line-height: 1.55; }
+.auth-box .account { text-align: left; margin-top: 4px; }
 .life-locked { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 10px; padding: 28px 12px; }
 .life-locked-icon { font-size: 2.4rem; line-height: 1; }
 .life-locked-sub { color: var(--text-sub); font-size: 0.95rem; line-height: 1.55; max-width: 32em; }

@@ -7,7 +7,9 @@ import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
 import LifeCard from './components/LifeCard.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
-import { initAccount, useAccount } from './account.js';
+import { initAccount, markDirty, useAccount } from './account.js';
+
+import { LoginScreen, PendingScreen, Splash } from './components/AuthScreens.jsx';
 
 const AccountModal = lazy(() => import('./components/AccountModal.jsx'));
 initAccount();
@@ -35,6 +37,12 @@ function useLocation() {
   const [status, setStatus] = useState(saved ? 'manual' : 'finding'); // finding | gps | manual | denied | unsupported
   const [label, setLabel] = useState('');
   const [recent, setRecent] = useState(() => load(RECENT_KEY, []));
+  // 계정에서 받은 최근 위치로 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => setRecent(load(RECENT_KEY, []));
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
 
   // GPS 로 지금 있는 곳 찾기. 성공했을 때만 위치를 바꾸고, 실패하면 보던 위치를 그대로 둔다.
   const [gpsError, setGpsError] = useState('');
@@ -78,6 +86,7 @@ function useLocation() {
     setRecent((list) => {
       const next = [p, ...list.filter((x) => !samePlace(x, p))].slice(0, RECENT_MAX);
       store(RECENT_KEY, next);
+      markDirty();
       return next;
     });
   }, []);
@@ -86,6 +95,7 @@ function useLocation() {
     setRecent((list) => {
       const next = list.filter((x) => !samePlace(x, place));
       store(RECENT_KEY, next);
+      markDirty();
       return next;
     });
   }, []);
@@ -145,7 +155,16 @@ function Clock() {
   );
 }
 
+// 로그인하고 관리자 승인을 받아야 화면을 쓸 수 있다. 세션은 이 기기에 남아 다음부터 자동으로 들어온다.
 export default function App() {
+  const acc = useAccount();
+  if (!acc.ready || (acc.user && acc.approved === null)) return <Splash error={acc.error} />;
+  if (!acc.user) return <LoginScreen />;
+  if (!acc.approved) return <PendingScreen acc={acc} />;
+  return <Dashboard />;
+}
+
+function Dashboard() {
   const { pos, status, label, recent, gpsError, locate, pick, removeRecent } = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
   const [picking, setPicking] = useState(false);

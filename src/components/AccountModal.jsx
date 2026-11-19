@@ -36,7 +36,7 @@ function Msg({ msg }) {
   return <p className={`account-msg${msg.ok ? ' ok' : ''}`} role={msg.ok ? 'status' : 'alert'}>{msg.text}</p>;
 }
 
-function SignIn({ onClose }) {
+export function SignIn({ onClose = () => {} }) {
   const [mode, setMode] = useState('in'); // in | up | forgot
   const [email, setEmail] = useState('');
   const [pw, setPw] = useState('');
@@ -59,7 +59,7 @@ function SignIn({ onClose }) {
       const r = await signUp(em, pw);
       setBusy(false);
       if (!r.ok) setMsg({ text: r.error });
-      else if (r.needConfirm) { setMode('in'); setPw2(''); setMsg({ ok: true, text: `${em} 으로 인증 메일을 보냈어요. 메일의 링크를 누른 뒤 여기서 로그인해 주세요.` }); }
+      else if (r.needConfirm) { setMode('in'); setPw2(''); setMsg({ ok: true, text: '가입됐어요. 로그인해 주세요.' }); }
       else onClose();
     } else {
       const r = await resetPassword(em);
@@ -79,7 +79,9 @@ function SignIn({ onClose }) {
       <p className="account-note">
         {mode === 'forgot'
           ? '가입한 이메일을 넣으면 비밀번호를 바꾸는 링크를 보내 드려요.'
-          : '로그인하면 생활 달력의 내 일정과 집값 카드의 단지 목록이 계정에 저장돼서, 핸드폰·컴퓨터 어디서든 똑같이 보여요.'}
+          : mode === 'up'
+            ? '가입한 뒤 관리자가 승인하면 쓸 수 있어요. 내 일정과 단지 목록은 계정에 저장돼 핸드폰·컴퓨터 어디서든 똑같이 보여요.'
+            : '한 번 로그인하면 이 기기에서는 다음부터 자동으로 들어와요.'}
       </p>
       <label className="field">
         <span>이메일</span>

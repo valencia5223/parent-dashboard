@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { fetchArrivals, fetchStations, useFetch } from '../api.js';
+import { markDirty } from '../account.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const SHOW = 4; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
@@ -54,10 +55,10 @@ function Arrivals({ station }) {
   );
 }
 
-// 즐겨찾는 정류장: 이 기기에 저장. 지금 위치와 상관없이 맨 앞에 보여 준다.
+// 즐겨찾는 정류장: 계정에 저장(account.js). 지금 위치와 상관없이 맨 앞에 보여 준다.
 const FAV_KEY = 'pd_bus_favs';
 const loadFavs = () => { try { return JSON.parse(localStorage.getItem(FAV_KEY)) || []; } catch { return []; } };
-const saveFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } };
+const saveFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } markDirty(); };
 // 가까운 두 점 사이 거리(m), 동네 안에서는 이 정도 근사로 충분
 const meters = (a, b) => Math.round(Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 88000));
 const distText = (m) => (m == null ? '' : m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`);
@@ -82,6 +83,12 @@ export default function BusSection({ pos }) {
   const [picked, setPicked] = useState(null);
   const [allStops, setAllStops] = useState(false);
   const [favs, setFavs] = useState(loadFavs);
+  // 계정에서 받은 즐겨찾기로 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => setFavs(loadFavs());
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
 
   // 위치가 바뀌면 맨 앞(즐겨찾기 또는 가장 가까운) 정류장으로 돌아간다
   useEffect(() => { setPicked(null); setAllStops(false); }, [pos.lat, pos.lng]);

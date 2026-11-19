@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { fetchGas, useFetch } from '../api.js';
+import { markDirty } from '../account.js';
 import Card, { Body } from './Card.jsx';
 
 const FUELS = [
@@ -12,7 +13,7 @@ const RADII = [3000, 5000];
 const won = (v) => `${v.toLocaleString('ko-KR')}원`;
 const km = (m) => (m == null ? '' : m < 1000 ? `${Math.round(m)}m` : `${(m / 1000).toFixed(1)}km`);
 const saved = (k, d) => { try { return localStorage.getItem(k) || d; } catch { return d; } };
-const save = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장 못 해도 괜찮음 */ } };
+const save = (k, v) => { try { localStorage.setItem(k, v); } catch { /* 저장 못 해도 괜찮음 */ } markDirty(); };
 
 const GAS_SHOW = 4; // 처음에 보여 줄 주유소 수
 
@@ -20,6 +21,12 @@ export default function GasCard({ pos }) {
   const [fuel, setFuel] = useState(() => saved('pd_fuel', 'gasoline'));
   const [more, setMore] = useState(false);
   const [radius, setRadius] = useState(() => Number(saved('pd_radius', '3000')));
+  // 계정에서 받은 설정으로 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => { setFuel(saved('pd_fuel', 'gasoline')); setRadius(Number(saved('pd_radius', '3000'))); };
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
   const state = useFetch(() => fetchGas(pos, fuel, radius), [pos.lat, pos.lng, fuel, radius], { interval: 30 * 60e3 });
 
   const pickFuel = (id) => { setFuel(id); save('pd_fuel', id); };
