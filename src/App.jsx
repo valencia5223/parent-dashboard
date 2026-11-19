@@ -7,6 +7,8 @@ import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
 import LifeCard from './components/LifeCard.jsx';
 import LibraryCard from './components/LibraryCard.jsx';
+import TourCard from './components/TourCard.jsx';
+import MoreSheet from './components/MoreSheet.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
 import { initAccount, markDirty, useAccount } from './account.js';
 
@@ -124,10 +126,28 @@ const CARD_TABS = [
   { id: 'gas', label: '주유', icon: '⛽' },
   { id: 'apt', label: '집값', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
-  { id: 'library', label: '도서관', icon: '📚' },
   { id: 'life', label: '달력', icon: '📅' },
+  { id: 'library', label: '도서관', icon: '📚' },
+  { id: 'tour', label: '나들이', icon: '🎡' },
 ];
 const MTAB_KEY = 'pd_mtab';
+// 핸드폰 아래 바에 둘 카드(나머지는 '더보기'). 사용자가 더보기에서 바꿀 수 있다
+const BAR_KEY = 'pd_mtab_bar';
+const BAR_MAX = 6;
+const DEFAULT_BAR = ['weather', 'transit', 'gas', 'apt', 'health', 'life'];
+// 핸드폰에서는 이 카드들을 처음 열 때 불러온다(하루 호출 한도가 있는 자료)
+const LAZY_CARDS = new Set(['library', 'tour']);
+const mobileMQ = '(max-width: 640px)';
+function useIsMobile() {
+  const [m, setM] = useState(() => window.matchMedia(mobileMQ).matches);
+  useEffect(() => {
+    const mq = window.matchMedia(mobileMQ);
+    const on = () => setM(mq.matches);
+    mq.addEventListener?.('change', on);
+    return () => mq.removeEventListener?.('change', on);
+  }, []);
+  return m;
+}
 
 // 조준점 모양 '현재 위치' 아이콘
 function LocateIcon() {
@@ -184,11 +204,26 @@ function Dashboard() {
     const v = load(MTAB_KEY, 'weather');
     return CARD_TABS.some((t) => t.id === v) ? v : 'weather';
   });
+  const [bar, setBar] = useState(() => {
+    const v = load(BAR_KEY, null);
+    const ok = Array.isArray(v) ? CARD_TABS.map((t) => t.id).filter((id) => v.includes(id)).slice(0, BAR_MAX) : [];
+    return ok.length ? ok : DEFAULT_BAR;
+  });
+  const [moreOpen, setMoreOpen] = useState(false);
+  const isMobile = useIsMobile();
+  const [opened, setOpened] = useState(() => new Set([mtab]));
   const pickTab = (id) => {
     setMtab(id);
     store(MTAB_KEY, id);
+    setOpened((s) => (s.has(id) ? s : new Set(s).add(id)));
+    setMoreOpen(false);
     window.scrollTo({ top: 0 });
   };
+  const saveBar = (ids) => { setBar(ids); store(BAR_KEY, ids); };
+  const closeMore = useCallback(() => setMoreOpen(false), []);
+  const show = (id) => !isMobile || !LAZY_CARDS.has(id) || opened.has(id);
+  const inMore = !bar.includes(mtab);
+  const moreTab = CARD_TABS.find((t) => t.id === mtab);
   // PC: 위쪽 바로가기 줄을 누르면 그 카드로 스크롤 (slot 은 display: contents 라 안의 카드로 간다)
   const jumpTo = (id) => {
     const el = document.querySelector(`[data-card="${id}"] > *`);
@@ -258,8 +293,9 @@ function Dashboard() {
           <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
           <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
-          <div className={slot('library')} data-card="library"><LibraryCard pos={pos} /></div>
           <div className={slot('life')} data-card="life"><LifeCard /></div>
+          <div className={slot('library')} data-card="library">{show('library') && <LibraryCard pos={pos} />}</div>
+          <div className={slot('tour')} data-card="tour">{show('tour') && <TourCard pos={pos} />}</div>
         </main>
         </>
       ) : (
@@ -271,18 +307,26 @@ function Dashboard() {
 
       {pos && (
         <nav className="mobile-tabbar" aria-label="카드 고르기">
-          {CARD_TABS.map((t) => (
+          {CARD_TABS.filter((t) => bar.includes(t.id)).map((t) => (
             <button key={t.id} type="button" className={mtab === t.id ? 'on' : ''} onClick={() => pickTab(t.id)} aria-current={mtab === t.id ? 'page' : undefined}>
               <span className="mtab-icon" aria-hidden>{t.icon}</span>
               <span className="mtab-label">{t.label}</span>
             </button>
           ))}
+          {/* 더보기: 지금 보는 카드가 바에 없으면 그 카드 이름으로 보여 준다 */}
+          <button type="button" className={inMore ? 'on' : ''} onClick={() => setMoreOpen(true)} aria-haspopup="dialog" aria-current={inMore ? 'page' : undefined}>
+            <span className="mtab-icon" aria-hidden>{inMore ? moreTab?.icon : '☰'}</span>
+            <span className="mtab-label">{inMore ? moreTab?.label : '더보기'}</span>
+          </button>
         </nav>
+      )}
+      {moreOpen && (
+        <MoreSheet tabs={CARD_TABS} bar={bar} current={mtab} max={BAR_MAX} onPick={pickTab} onSaveBar={saveBar} onClose={closeMore} />
       )}
 
       <footer className="app-foot">
         <button type="button" className="btn" onClick={() => setRefreshKey((k) => k + 1)}>전체 새로고침</button>
-        <p>날씨 기상청 · 미세먼지 에어코리아 · 버스 경기도 버스정보 · 지하철 서울 열린데이터광장·OpenStreetMap · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 도서관 도서관 정보나루 · 장소 검색 카카오맵</p>
+        <p>날씨 기상청 · 미세먼지 에어코리아 · 버스 경기도 버스정보 · 지하철 서울 열린데이터광장·OpenStreetMap · 주유소 오피넷 · 약국·병원·응급실 국립중앙의료원 · 실거래가 국토교통부 · 도서관 도서관 정보나루 · 축제·관광 한국관광공사 · 장소 검색 카카오맵</p>
       </footer>
 
       {picking && (

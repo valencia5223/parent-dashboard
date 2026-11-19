@@ -9,7 +9,7 @@ import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabaseConfig.js';
 // 계정에 저장하는 것: 생활 달력·내 단지 목록·버스 즐겨찾기 정류장·지하철 즐겨찾기 역·날씨 도시·최근 고른 위치·주유소 기름 종류와 반경
 const SYNC_KEYS = {
   life: 'pd_life_v1', apts: 'pd_apts', busFavs: 'pd_bus_favs', subwayFavs: 'pd_subway_favs', weatherCities: 'pd_wx_cities', recentPlaces: 'pd_recent_places', fuel: 'pd_fuel', radius: 'pd_radius',
-  libFavs: 'pd_lib_favs', libWish: 'pd_lib_wish',
+  libFavs: 'pd_lib_favs', libWish: 'pd_lib_wish', tourSaved: 'pd_tour_saved',
 };
 const RAW = new Set(['fuel', 'radius']); // JSON 이 아니라 글자 그대로 저장하는 것
 const AUTH_KEY = 'pd_auth';
@@ -115,6 +115,7 @@ const LIST_KEY = {
   recentPlaces: (a) => `${a?.lat},${a?.lng}`,
   libFavs: (a) => a?.code,
   libWish: (a) => a?.isbn,
+  tourSaved: (a) => a?.id,
 };
 function tidy(d) {
   if (!d) return d;
