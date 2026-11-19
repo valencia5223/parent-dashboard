@@ -475,7 +475,6 @@ button.ev-row:hover { border-color: var(--primary); }
     border: 0; background: none; display: flex; flex-direction: column; align-items: center; gap: 2px;
     padding: 6px 0; min-height: 56px; border-radius: var(--radius-md); color: var(--text-sub); font: inherit; cursor: pointer;
   }
-  .life-grid .month { order: 2; }
   .mobile-tabbar .mtab-icon { font-size: 1.45rem; line-height: 1; filter: grayscale(0.6); opacity: 0.75; }
   .mobile-tabbar .mtab-label { font-size: 0.78rem; font-weight: 700; white-space: nowrap; }
   .mobile-tabbar button.on { color: var(--primary); background: var(--primary-soft); }
