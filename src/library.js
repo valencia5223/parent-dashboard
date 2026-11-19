@@ -58,14 +58,16 @@ export const distKm = (a, b) => {
   return 2 * R * Math.asin(Math.sqrt(h));
 };
 
+// '설&middot;추석' 처럼 HTML 기호가 섞여 온다
+const unent = (v) => String(v || '').replace(/&middot;/g, '·').replace(/&nbsp;/g, ' ').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/<[^>]*>/g, ' ').trim();
 const libOf = (o) => ({
   code: String(o.libCode ?? ''),
-  name: String(o.libName ?? '').trim(),
+  name: unent(o.libName),
   address: o.address || '',
   tel: o.tel || '',
   homepage: o.homepage || '',
-  closed: String(o.closed || '').trim(),
-  hours: String(o.operatingTime || '').trim(),
+  closed: unent(o.closed),
+  hours: unent(o.operatingTime),
   lat: num(o.latitude),
   lng: num(o.longitude),
 });
@@ -169,6 +171,8 @@ export function closedToday(text, now = new Date(Date.now() + 9 * 3600e3)) {
   const date = now.getUTCDate();
   const nth = Math.ceil(date / 7);
   const last = date + 7 > new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).getUTCDate();
+  // '2026/8/31 부터 전체 휴관, 27년 재개관 예정' 같은 오랜 휴관
+  if (/재개관|리모델링|공사\s*중|부터\s*(전체\s*)?휴관|휴관\s*중/.test(t)) return true;
   let understood = false;
   // '둘째·넷째 월요일', '2,4째주' 는 한 덩어리로 둔다
   for (const seg of t.split(/,(?!\s*\d)|，|\/|및|\n|;/)) {
