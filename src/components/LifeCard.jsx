@@ -172,7 +172,7 @@ function MonthView({ today, holidays, events, lunarReady, trashOn, onAdd, onEdit
             {ev.lunar && <span className="ev-tag">음력</span>}
           </button>
         ))}
-        <button type="button" className="btn btn-sm btn-quiet" onClick={() => onAdd(picked)}>＋ 이 날에 추가</button>
+        <button type="button" className="btn btn-sm btn-add-day" onClick={() => onAdd(picked)}>＋ {parts(picked)[1]}월 {parts(picked)[2]}일에 날짜 추가</button>
       </div>
     </section>
   );

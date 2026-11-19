@@ -334,6 +334,8 @@ button.ev-row:hover { border-color: var(--primary); }
 .life-form .field input:focus { outline: 3px solid var(--primary-soft); border-color: var(--primary); background: var(--bg-card); }
 .life-form .check { display: flex; align-items: center; gap: 8px; font-weight: 600; }
 .life-form .check input { width: 22px; height: 22px; }
+.btn-add-day { border: 1.5px dashed var(--primary); color: var(--primary); background: var(--primary-soft); font-weight: 700; align-self: stretch; }
+.btn-add-day:hover { background: var(--primary-soft); border-style: solid; }
 .form-actions { display: flex; gap: 8px; flex-wrap: wrap; }
 .form-save { margin-left: auto; min-width: 96px; }
 .chip-add { border-style: dashed; color: var(--primary); background: var(--bg-card); }
