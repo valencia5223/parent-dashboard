@@ -4,10 +4,10 @@ import { markDirty } from '../account.js';
 import { bookAvailability, closedToday, fetchLibraries, fetchPopular, searchBooks } from '../library.js';
 import Card, { Body, ErrorBox } from './Card.jsx';
 
-// 도서관: 근처 도서관(오늘 여는지) · 책 찾기(근처 어디서 빌릴 수 있나, 인기 대출 책) · 읽고 싶은 책(계정 저장)
+// 도서관: 책 찾기(근처 어디서 빌릴 수 있나, 인기 대출 책) · 근처 도서관(오늘 여는지) · 읽고 싶은 책(계정 저장)
 const TABS = [
-  { id: 'near', label: '근처 도서관' },
   { id: 'find', label: '책 찾기' },
+  { id: 'near', label: '근처 도서관' },
   { id: 'wish', label: '읽고 싶은 책' },
 ];
 const TAB_KEY = 'pd_lib_tab';
@@ -257,7 +257,7 @@ function Wish({ pos, wish, ...rest }) {
 }
 
 export default function LibraryCard({ pos }) {
-  const [tab, setTab] = useState(() => { try { const v = localStorage.getItem(TAB_KEY); return TABS.some((t) => t.id === v) ? v : 'near'; } catch { return 'near'; } });
+  const [tab, setTab] = useState(() => { try { const v = localStorage.getItem(TAB_KEY); return TABS.some((t) => t.id === v) ? v : 'find'; } catch { return 'find'; } });
   const [refresh, setRefresh] = useState(0);
   const [favs, setFavs] = useSyncedList(FAV_KEY);
   const [wish, setWish] = useSyncedList(WISH_KEY);
