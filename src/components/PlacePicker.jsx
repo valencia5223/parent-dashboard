@@ -14,7 +14,7 @@ export default function PlacePicker({ current, recent, onPick, onUseGps, onRemov
     return () => window.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  // 검색 서비스(OpenStreetMap) 이용 규칙상 글자마다 찾지 않고 '찾기'를 눌렀을 때만 찾는다
+  // 검색 서비스 이용 규칙상 글자마다 찾지 않고 '찾기'를 눌렀을 때만 찾는다
   const search = async (e) => {
     e.preventDefault();
     const text = q.trim();
@@ -92,7 +92,7 @@ export default function PlacePicker({ current, recent, onPick, onUseGps, onRemov
             </ul>
           </section>
         )}
-        <p className="card-foot">장소 검색: OpenStreetMap</p>
+        <p className="card-foot">장소 검색: 카카오맵</p>
       </div>
     </div>
   );

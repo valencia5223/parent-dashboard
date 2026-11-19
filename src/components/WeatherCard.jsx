@@ -188,7 +188,7 @@ export default function WeatherCard({ pos }) {
   );
 }
 
-// 도시 추가 창: 이름으로 찾아 고른다(OpenStreetMap 검색, 글자마다 찾지 않고 '찾기'를 눌렀을 때만)
+// 도시 추가 창: 이름으로 찾아 고른다(카카오 검색, 글자마다 찾지 않고 '찾기'를 눌렀을 때만)
 function CityPicker({ onPick, onClose }) {
   const [q, setQ] = useState('');
   const [st, setSt] = useState({ loading: false, results: null, error: '' });
@@ -229,7 +229,7 @@ function CityPicker({ onPick, onClose }) {
             ))}
           </ul>
         ))}
-        <p className="card-foot">장소 검색: OpenStreetMap · 추가한 도시는 계정에 저장돼요</p>
+        <p className="card-foot">장소 검색: 카카오맵 · 추가한 도시는 계정에 저장돼요</p>
       </div>
     </div>
   );
