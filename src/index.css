@@ -156,11 +156,6 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .stop-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 14px; }
 .stop-head p { margin: 0; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .stop-head small { opacity: 0.7; }
-.dir-tabs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 6px; margin-top: 8px; }
-.dir-tab { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 10px 12px; border: 1.5px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-subtle); font: inherit; color: var(--text-main); text-align: left; cursor: pointer; min-width: 0; }
-.dir-tab > span { font-weight: 800; font-size: 0.95rem; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dir-tab small { font-size: 0.75rem; color: var(--text-sub); }
-.dir-on { border-color: var(--primary); background: var(--primary-soft); color: var(--primary); }
 .btn-fav { flex-shrink: 0; white-space: nowrap; }
 .btn-fav-on { color: #b37800; border-color: #f5c542; background: #fff8e1; }
 
