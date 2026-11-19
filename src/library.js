@@ -117,15 +117,30 @@ export function searchBooks(text) {
   });
 }
 
-// 인기 대출 책: 최근 30일, 시·도, 나이(정보나루 age: 0 영유아·6 유아·8 초등·14 청소년)
-export async function fetchPopular(pos, age) {
+// 인기 대출 책 장르. kdc = 한국십진분류 대분류, addCode 0 = 일반 도서(어린이책을 빼야 과학·역사 등이 '흔한남매'로 덮이지 않음), 7 = 아동
+export const GENRES = [
+  { id: 'all', label: '전체', p: {} },
+  { id: 'lit', label: '소설·문학', p: { kdc: '8', addCode: '0' } },
+  { id: 'soc', label: '경제·사회', p: { kdc: '3', addCode: '0' } },
+  { id: 'mind', label: '마음·철학', p: { kdc: '1', addCode: '0' } },
+  { id: 'sci', label: '과학', p: { kdc: '4', addCode: '0' } },
+  { id: 'life', label: '건강·생활', p: { kdc: '5', addCode: '0' } },
+  { id: 'art', label: '예술·취미', p: { kdc: '6', addCode: '0' } },
+  { id: 'hist', label: '역사·여행', p: { kdc: '9', addCode: '0' } },
+  { id: 'kids', label: '어린이', p: { addCode: '7' } },
+];
+// 같은 책이 권·판마다 따로 올라와서 제목(부제·권 번호 뺀)으로 하나만 남긴다
+const titleKey = (t) => String(t || '').split(/\s*[:=]/)[0].replace(/[\s()（）]/g, '').replace(/\d+$/, '');
+export async function fetchPopular(pos, genre = 'all') {
   const [region] = await sidosNear(pos);
+  const g = GENRES.find((x) => x.id === genre) || GENRES[0];
   const day = (n) => new Date(Date.now() + 9 * 3600e3 - n * 86400e3).toISOString().slice(0, 10);
-  return cached(`lib:pop:${region}:${age ?? 'all'}:${day(1)}`, 24 * 3600e3, async () => {
-    const p = { startDt: day(31), endDt: day(1), region, pageNo: '1', pageSize: '20' };
-    if (age != null) p.age = String(age);
-    const r = await lib('loanItemSrch', p);
-    return unwrap(r.docs, 'doc').map(bookOf).filter((b) => b.isbn && b.title);
+  return cached(`lib:pop2:${region}:${g.id}:${day(1)}`, 24 * 3600e3, async () => {
+    const r = await lib('loanItemSrch', { startDt: day(31), endDt: day(1), region, pageNo: '1', pageSize: '40', ...g.p });
+    const seen = new Set();
+    return unwrap(r.docs, 'doc').map(bookOf)
+      .filter((b) => b.isbn && b.title && !seen.has(titleKey(b.title)) && seen.add(titleKey(b.title)))
+      .slice(0, 15);
   }, { persist: true });
 }
 

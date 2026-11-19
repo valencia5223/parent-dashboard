@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFetch } from '../api.js';
 import { markDirty } from '../account.js';
-import { bookAvailability, closedToday, fetchLibraries, fetchPopular, searchBooks } from '../library.js';
+import { bookAvailability, closedToday, fetchLibraries, fetchPopular, GENRES, searchBooks } from '../library.js';
 import Card, { Body, ErrorBox } from './Card.jsx';
 
 // 도서관: 책 찾기(근처 어디서 빌릴 수 있나, 인기 대출 책) · 근처 도서관(오늘 여는지) · 읽고 싶은 책(계정 저장)
@@ -14,13 +14,6 @@ const TAB_KEY = 'pd_lib_tab';
 const FAV_KEY = 'pd_lib_favs'; // [{ code, name }]
 const WISH_KEY = 'pd_lib_wish'; // [{ isbn, title, authors, cover }]
 const SHOW = 4;
-const AGES = [
-  { id: null, label: '전체' },
-  { id: 0, label: '영유아' },
-  { id: 6, label: '유아' },
-  { id: 8, label: '초등' },
-  { id: 14, label: '청소년' },
-];
 
 const readList = (k) => { try { const v = JSON.parse(localStorage.getItem(k)); return Array.isArray(v) ? v : []; } catch { return []; } };
 const writeList = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } markDirty(); };
@@ -190,14 +183,15 @@ function BookList({ books, pos, favCodes, wish, onWish, ranked, autoOpen = 0 }) 
 }
 
 function Popular({ pos, ...rest }) {
-  const [age, setAge] = useState(null);
-  const state = useFetch(() => fetchPopular(pos, age), [pos.lat, pos.lng, age]);
+  const [genre, setGenre] = useState(() => { try { return localStorage.getItem('pd_lib_genre') || 'all'; } catch { return 'all'; } });
+  const pickGenre = (id) => { setGenre(id); try { localStorage.setItem('pd_lib_genre', id); } catch { /* 괜찮음 */ } };
+  const state = useFetch(() => fetchPopular(pos, genre), [pos.lat, pos.lng, genre]);
   return (
     <>
       <p className="lib-sub-title">요즘 우리 지역에서 많이 빌린 책 (최근 30일)</p>
-      <div className="chips" role="tablist" aria-label="나이 고르기">
-        {AGES.map((a) => (
-          <button key={String(a.id)} type="button" role="tab" aria-selected={age === a.id} className={`chip chip-sm${age === a.id ? ' chip-on' : ''}`} onClick={() => setAge(a.id)}>
+      <div className="chips" role="tablist" aria-label="장르 고르기">
+        {GENRES.map((a) => (
+          <button key={a.id} type="button" role="tab" aria-selected={genre === a.id} className={`chip chip-sm${genre === a.id ? ' chip-on' : ''}`} onClick={() => pickGenre(a.id)}>
             {a.label}
           </button>
         ))}
