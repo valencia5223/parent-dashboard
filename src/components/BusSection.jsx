@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react';
-import { fetchArrivals, fetchRouteTimes, fetchStations, useFetch } from '../api.js';
+import { fetchArrivals, fetchRouteTimes, fetchStations, stopBaseName, useFetch } from '../api.js';
 import { markDirty } from '../account.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const SHOW = 4; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
-const STOP_SHOW = 6; // 처음에 보여 줄 정류장 수
+const STOP_SHOW = 4; // 처음에 보여 줄 정류장(같은 이름은 하나로 묶음) 수
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
 
 const CROWD = { 1: ['여유', 'crowd-1'], 2: ['보통', 'crowd-2'], 3: ['혼잡', 'crowd-3'], 4: ['매우 혼잡', 'crowd-4'] };
@@ -94,24 +94,43 @@ const saveFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v))
 const meters = (a, b) => Math.round(Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 88000));
 const distText = (m) => (m == null ? '' : m >= 1000 ? `${(m / 1000).toFixed(1)}km` : `${m}m`);
 
-// 즐겨찾기(가까운 순) → 나머지 주변 정류장(가까운 순)
+// 같은 이름 정류장(길 건너 맞은편, 승강장별)을 하나로 묶는다. 즐겨찾기가 든 묶음(가까운 순) → 나머지(가까운 순)
 function arrange(nearby, favs, pos) {
   const near = new Map(nearby.map((s) => [s.id, s]));
-  const favList = favs
-    .map((f) => {
-      const s = near.get(f.id) || f; // 주변 목록에 있으면 새 정보로
-      const distance = near.has(f.id) ? s.distance : (s.lat != null ? meters(s, pos) : null);
-      return { ...s, distance, fav: true };
-    })
-    .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
   const favIds = new Set(favs.map((f) => f.id));
-  return [...favList, ...nearby.filter((s) => !favIds.has(s.id))];
+  const all = [
+    ...favs.map((f) => {
+      const s = near.get(f.id) || f; // 주변 목록에 있으면 새 정보로
+      return { ...s, distance: near.has(f.id) ? s.distance : (s.lat != null ? meters(s, pos) : null) };
+    }),
+    ...nearby.filter((s) => !favIds.has(s.id)),
+  ].map((s) => ({ ...s, fav: favIds.has(s.id) }));
+  const groups = new Map();
+  for (const s of all) {
+    const key = stopBaseName(s.name) || s.name;
+    if (!groups.has(key)) groups.set(key, { key, name: key, stops: [] });
+    groups.get(key).stops.push(s);
+  }
+  const list = [...groups.values()].map((g) => {
+    g.stops.sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+    return { ...g, distance: g.stops[0].distance, fav: g.stops.some((s) => s.fav) };
+  });
+  return list.sort((a, b) => (b.fav - a.fav) || (a.distance ?? 1e9) - (b.distance ?? 1e9));
+}
+
+// 방향 버튼 이름: '→ 산본역 방면'. 같은 묶음에서 방면이 겹치면 승강장·정류장 번호로 구분한다.
+function dirLabels(stops) {
+  return stops.map((s) => {
+    const same = stops.filter((x) => x.toward === s.toward).length > 1;
+    const extra = same ? (s.name.match(/\(([^)]*승강장[^)]*)\)/)?.[1] || s.no) : '';
+    return { main: s.toward ? `→ ${s.toward} 방면` : `정류장 ${s.no || ''}`.trim(), extra };
+  });
 }
 
 // 버스·지하철 카드(TransitCard)의 '버스' 탭
 export default function BusSection({ pos }) {
   const stations = useFetch(() => fetchStations(pos), [pos.lat, pos.lng]);
-  const [picked, setPicked] = useState(null);
+  const [picked, setPicked] = useState(null); // 고른 정류장 id
   const [allStops, setAllStops] = useState(false);
   const [favs, setFavs] = useState(loadFavs);
   // 계정에서 받은 즐겨찾기로 바뀌면 다시 읽는다
@@ -138,49 +157,68 @@ export default function BusSection({ pos }) {
   return (
       <Body state={stations} lines={4}>
         {(nearby) => {
-          const list = arrange(nearby, favs, pos);
-          if (list.length === 0) return <p className="empty">주변 500m 안에 정류장을 찾지 못했어요</p>;
-          const station = list.find((s) => s.id === picked) || list[0];
+          const groups = arrange(nearby, favs, pos);
+          if (groups.length === 0) return <p className="empty">주변 500m 안에 정류장을 찾지 못했어요</p>;
+          const group = groups.find((g) => g.stops.some((s) => s.id === picked)) || groups[0];
+          // 묶음 안에서는 고른 것 → 즐겨찾기 → 가장 가까운 것
+          const station = group.stops.find((s) => s.id === picked) || group.stops.find((s) => s.fav) || group.stops[0];
           const isFav = favs.some((f) => f.id === station.id);
           // 고른 정류장이 접힌 쪽에 있어도 보이게
-          const shown = allStops ? list : list.filter((s, i) => i < STOP_SHOW || s.id === station.id);
+          const shown = allStops ? groups : groups.filter((g, i) => i < STOP_SHOW || g === group);
+          const labels = dirLabels(group.stops);
           return (
             <>
               <div className="stop-grid" role="tablist" aria-label="정류장 고르기">
-                {shown.map((s) => (
-                  <button
-                    key={s.id}
-                    type="button"
-                    role="tab"
-                    aria-selected={s.id === station.id}
-                    className={`stop${s.id === station.id ? ' stop-on' : ''}`}
-                    onClick={() => setPicked(s.id)}
-                  >
-                    <span className="stop-name">{s.fav && <span className="stop-star" aria-label="즐겨찾기">★ </span>}{s.name}</span>
-                    {s.toward && <span className="stop-dir">→ {s.toward} 방면</span>}
-                    <small>{[distText(s.distance), s.no].filter(Boolean).join(' · ')}</small>
-                  </button>
-                ))}
+                {shown.map((g) => {
+                  const dirs = new Set(g.stops.map((s) => s.toward).filter(Boolean));
+                  const note = g.stops.length > 1
+                    ? (dirs.size > 1 ? `${dirs.size}방향` : `${g.stops.length}곳`)
+                    : (g.stops[0].toward ? `→ ${g.stops[0].toward}` : '');
+                  return (
+                    <button
+                      key={g.key}
+                      type="button"
+                      role="tab"
+                      aria-selected={g === group}
+                      className={`stop${g === group ? ' stop-on' : ''}`}
+                      onClick={() => setPicked((g.stops.find((s) => s.fav) || g.stops[0]).id)}
+                    >
+                      <span className="stop-name">{g.fav && <span className="stop-star" aria-label="즐겨찾기">★ </span>}{g.name}</span>
+                      <small>{[distText(g.distance), note].filter(Boolean).join(' · ')}</small>
+                    </button>
+                  );
+                })}
               </div>
-              {list.length > STOP_SHOW && (
+              {groups.length > STOP_SHOW && (
                 <button type="button" className="btn btn-sm btn-block" onClick={() => setAllStops(!allStops)} aria-expanded={allStops}>
-                  {allStops ? '정류장 접기' : `정류장 ${list.length - STOP_SHOW}곳 더 보기`}
+                  {allStops ? '정류장 접기' : `정류장 ${groups.length - STOP_SHOW}곳 더 보기`}
                 </button>
               )}
               <div className="stop-head">
                 <p>
-                  <strong>{station.name}</strong>
-                  {station.toward && <small> {station.toward} 방면</small>}
+                  <strong>{group.name}</strong>
+                  {group.stops.length === 1 && station.toward && <small> {station.toward} 방면</small>}
                 </p>
                 <button
                   type="button"
                   className={`btn btn-sm btn-fav${isFav ? ' btn-fav-on' : ''}`}
                   onClick={() => toggleFav(station)}
                   aria-pressed={isFav}
+                  title={group.stops.length > 1 ? '이 방향 정류장을 즐겨찾기' : '즐겨찾기'}
                 >
                   {isFav ? '★ 즐겨찾기 됨' : '☆ 즐겨찾기'}
                 </button>
               </div>
+              {group.stops.length > 1 && (
+                <div className="dir-tabs" role="tablist" aria-label="방향 고르기">
+                  {group.stops.map((s, i) => (
+                    <button key={s.id} type="button" role="tab" aria-selected={s.id === station.id} className={`dir-tab${s.id === station.id ? ' dir-on' : ''}`} onClick={() => setPicked(s.id)}>
+                      <span>{s.fav && <span className="stop-star">★ </span>}{labels[i].main}</span>
+                      <small>{[labels[i].extra, distText(s.distance)].filter(Boolean).join(' · ')}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
               <Arrivals key={station.id} station={station} />
             </>
           );

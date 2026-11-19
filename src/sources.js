@@ -128,7 +128,7 @@ function gbisList(text, listName) {
 export function fetchStations({ lat, lng }) {
   const key = dataKey();
   if (!key) return Promise.reject(needKey('공공데이터포털'));
-  return cached(`st3:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
+  return cached(`st4:${lat.toFixed(4)},${lng.toFixed(4)}`, 30 * 60e3, async () => {
     const q = new URLSearchParams({ serviceKey: key, x: String(lng), y: String(lat), format: 'json' });
     const list = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationAroundListv2?${q}`), 'busStationAroundList');
     const stations = list
@@ -164,21 +164,40 @@ function routeStops(routeId, key) {
   });
 }
 
-// 이 정류장을 지나는 노선에서 바로 다음 정류장 이름 → '○○ 방면'. 정류장은 잘 안 바뀌니 일주일 기억한다.
+// 정류장 이름에서 괄호(승강장·중앙차로 표시 등)를 뗀 이름. 같은 이름 정류장(길 건너 맞은편 등)을 묶을 때도 쓴다.
+export const stopBaseName = (n) => String(n || '').replace(/\s*\([^)]*\)\s*/g, '').trim();
+// 알아보기 쉬운 곳: 지하철역 → 터미널·시청·병원 같은 큰 곳
+const STATION_RE = /[가-힣A-Za-z0-9]+역(?![가-힣])/;
+const LANDMARK_RE = /(터미널|환승센터|시청|구청|군청|병원|의료원|대학교|시장|공원|차고지)/;
+// '산본역.롯데백화점' → '산본역', '군포시청.군포경찰서' → '군포시청'
+function landmarkOf(name, re) {
+  const part = stopBaseName(name).split(/[.·,]/).find((p) => re.test(p));
+  if (!part) return '';
+  return re === STATION_RE ? part.match(STATION_RE)[0] : part.trim();
+}
+
+// 이 정류장을 지나는 노선을 따라가며 '○○ 방면'을 정한다: 12정류장 안의 지하철역 → 큰 곳 → 바로 다음 정류장 이름.
+// 정류장은 잘 안 바뀌니 일주일 기억한다.
 function stationDirection(stationId, key) {
-  return cached(`dir:${stationId}`, 7 * 24 * 3600e3, async () => {
+  return cached(`dir2:${stationId}`, 7 * 24 * 3600e3, async () => {
     const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
     const routes = gbisList(await getText(`/api/gbis/busstationservice/v2/getBusStationViaRouteListv2?${q}`), 'busRouteList');
-    let here = '';
     for (const r of routes.slice(0, 3)) {
       const stops = await routeStops(String(r.routeId), key);
       // staOrder 로 찾되, 순환 노선처럼 같은 정류장이 두 번 나오면 그 순서의 것을 쓴다
       let i = stops.findIndex((s) => s.seq === num(r.staOrder) && s.id === String(stationId));
       if (i === -1) i = stops.findIndex((s) => s.id === String(stationId));
       if (i === -1) continue;
-      here = stops[i].name;
-      const next = stops.slice(i + 1).find((s) => !NO_STOP.test(s.name) && s.name !== here);
-      if (next) return next.name;
+      const here = stopBaseName(stops[i].name);
+      const ahead = stops.slice(i + 1).filter((s) => !NO_STOP.test(s.name) && stopBaseName(s.name) !== here);
+      if (!ahead.length) continue;
+      const near = ahead.slice(0, 12);
+      const hereStation = landmarkOf(here, STATION_RE);
+      for (const re of [STATION_RE, LANDMARK_RE]) {
+        const hit = near.map((s) => landmarkOf(s.name, re)).find((v) => v && v !== hereStation);
+        if (hit) return hit;
+      }
+      return stopBaseName(ahead[0].name);
     }
     return '';
   }, { persist: true });
