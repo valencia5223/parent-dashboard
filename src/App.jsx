@@ -223,7 +223,6 @@ function Dashboard() {
   const closeMore = useCallback(() => setMoreOpen(false), []);
   const show = (id) => !isMobile || !LAZY_CARDS.has(id) || opened.has(id);
   const inMore = !bar.includes(mtab);
-  const moreTab = CARD_TABS.find((t) => t.id === mtab);
   // PC: 위쪽 바로가기 줄을 누르면 그 카드로 스크롤 (slot 은 display: contents 라 안의 카드로 간다)
   const jumpTo = (id) => {
     const el = document.querySelector(`[data-card="${id}"] > *`);
@@ -287,6 +286,16 @@ function Dashboard() {
             </button>
           ))}
         </nav>
+        {/* 핸드폰: 더보기 카드를 보는 중이면 위에 더보기 카드끼리 바로 바꾸는 줄 */}
+        {inMore && (
+          <nav className="more-switch" aria-label="더보기 카드 고르기">
+            {CARD_TABS.filter((t) => !bar.includes(t.id)).map((t) => (
+              <button key={t.id} type="button" className={`chip chip-sm${mtab === t.id ? ' chip-on' : ''}`} onClick={() => pickTab(t.id)} aria-current={mtab === t.id ? 'page' : undefined}>
+                <span aria-hidden>{t.icon}</span> {t.label}
+              </button>
+            ))}
+          </nav>
+        )}
         <main className="grid" key={refreshKey}>
           <div className={slot('weather')} data-card="weather"><WeatherCard pos={pos} /></div>
           <div className={slot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
@@ -315,8 +324,8 @@ function Dashboard() {
           ))}
           {/* 더보기: 지금 보는 카드가 바에 없으면 그 카드 이름으로 보여 준다 */}
           <button type="button" className={inMore ? 'on' : ''} onClick={() => setMoreOpen(true)} aria-haspopup="dialog" aria-current={inMore ? 'page' : undefined}>
-            <span className="mtab-icon" aria-hidden>{inMore ? moreTab?.icon : '☰'}</span>
-            <span className="mtab-label">{inMore ? moreTab?.label : '더보기'}</span>
+            <span className="mtab-icon" aria-hidden>☰</span>
+            <span className="mtab-label">더보기</span>
           </button>
         </nav>
       )}

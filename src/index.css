@@ -548,6 +548,8 @@ button.ev-row:hover { border-color: var(--primary); }
 .jump-bar button:hover { border-color: var(--primary); color: var(--primary); }
 .card { scroll-margin-top: 72px; }
 .mobile-tabbar { display: none; }
+.more-switch { display: none; }
+@media (max-width: 640px) { .more-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; } }
 .app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
 
 @media (max-width: 640px) {
