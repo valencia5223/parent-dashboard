@@ -1,8 +1,28 @@
 import { useEffect, useState } from 'react';
-import { fetchSubwayArrivals, fetchSubwayStations, SUBWAY_LINES, useFetch } from '../api.js';
+import { fetchSubwayArrivals, fetchSubwayStations, fetchSubwayTimes, trainTime, SUBWAY_LINES, useFetch } from '../api.js';
+import { markDirty } from '../account.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
 const ARRIVED = { 0: '진입 중', 1: '도착', 2: '출발' };
+
+// 즐겨찾는 역: 계정에 저장(account.js). 지금 위치와 상관없이 맨 앞에 보여 준다.
+const FAV_KEY = 'pd_subway_favs';
+const loadFavs = () => { try { const v = JSON.parse(localStorage.getItem(FAV_KEY)); return Array.isArray(v) ? v : []; } catch { return []; } };
+const saveFavs = (v) => { try { localStorage.setItem(FAV_KEY, JSON.stringify(v)); } catch { /* 괜찮음 */ } markDirty(); };
+const meters = (a, b) => Math.round(Math.hypot((a.lat - b.lat) * 111000, (a.lng - b.lng) * 88000));
+const distText = (m) => (m == null ? '' : m < 1000 ? `${m}m` : `${(m / 1000).toFixed(1)}km`);
+
+// 이 방향 오늘 막차 (서울 열린데이터광장 시간표)
+function LastTrain({ station, line, dir }) {
+  const state = useFetch(() => fetchSubwayTimes(station, line, dir), [station, line, dir]);
+  const t = state.data;
+  if (!t) return null;
+  return (
+    <p className={`sub-last${t.passed ? ' sub-last-passed' : ''}`}>
+      {t.passed ? `오늘 막차 끝 (${trainTime(t.last)})` : <>막차 <b>{trainTime(t.last)}</b> {t.lastDest}행</>}
+    </p>
+  );
+}
 
 // 남은 시간: 서울 API 의 barvlDt(초)는 받은 시각(recptnDt) 기준이라 지난 시간만큼 뺀다. 0 이면 안내 문구 그대로
 function whenText(t, now) {
@@ -48,19 +68,20 @@ function Arrivals({ station }) {
                       const soon = w === '곧 도착' || w === '도착' || w === '진입 중' || /^1역 전|^[12]분 후/.test(w);
                       return (
                         <li key={t.id}>
-                          <span className="sub-dest">{t.dest}행{t.kind && <em> {t.kind}</em>}</span>
+                          <span className="sub-dest">{t.dest}행{t.kind && <em> {t.kind}</em>}{t.last && <em className="sub-lasttrain"> 막차</em>}</span>
                           <strong className={soon ? 'sub-when sub-soon' : 'sub-when'}>{w}</strong>
                         </li>
                       );
                     })}
                   </ul>
+                  <LastTrain station={station.name} line={line} dir={dir} />
                 </div>
               ))}
             </div>
           </div>
         );
       })}
-      <p className="card-foot">30초마다 저절로 새로 고쳐요 · 서울 열린데이터광장 실시간 도착정보</p>
+      <p className="card-foot">30초마다 저절로 새로 고쳐요 · 서울 열린데이터광장 실시간 도착정보·시간표</p>
     </>
   );
 }
@@ -69,13 +90,30 @@ function Arrivals({ station }) {
 export default function SubwaySection({ pos }) {
   const stations = useFetch(() => fetchSubwayStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
+  const [favs, setFavs] = useState(loadFavs);
   useEffect(() => { setPicked(null); }, [pos.lat, pos.lng]);
+  // 계정에서 받은 즐겨찾기로 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => setFavs(loadFavs());
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
+  const toggleFav = (s) => {
+    const next = favs.some((f) => f.name === s.name) ? favs.filter((f) => f.name !== s.name) : [...favs, { name: s.name, lat: s.lat, lng: s.lng }];
+    setFavs(next);
+    saveFavs(next);
+    setPicked(s.name);
+  };
 
   return (
       <Body state={stations} lines={3}>
-        {(list) => {
+        {(nearby) => {
+          // 즐겨찾기(가까운 순) → 주변 역
+          const favList = favs.map((f) => ({ ...f, distance: f.lat != null ? meters(f, pos) : null, fav: true })).sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9));
+          const list = [...favList, ...nearby.filter((s) => !favs.some((f) => f.name === s.name))];
           if (list.length === 0) return <p className="empty">3km 안에 지하철역이 없어요</p>;
           const station = list.find((s) => s.name === picked) || list[0];
+          const isFav = favs.some((f) => f.name === station.name);
           return (
             <>
               <div className="chips chips-scroll" role="tablist" aria-label="역 고르기">
@@ -88,10 +126,16 @@ export default function SubwaySection({ pos }) {
                     className={`chip${s.name === station.name ? ' chip-on' : ''}`}
                     onClick={() => setPicked(s.name)}
                   >
-                    {s.name}역
-                    <small>{s.distance < 1000 ? `${s.distance}m` : `${(s.distance / 1000).toFixed(1)}km`}</small>
+                    {s.fav && <span className="stop-star" aria-label="즐겨찾기">★ </span>}{s.name}역
+                    <small>{distText(s.distance)}</small>
                   </button>
                 ))}
+              </div>
+              <div className="stop-head">
+                <p><strong>{station.name}역</strong></p>
+                <button type="button" className={`btn btn-sm btn-fav${isFav ? ' btn-fav-on' : ''}`} onClick={() => toggleFav(station)} aria-pressed={isFav}>
+                  {isFav ? '★ 즐겨찾기 됨' : '☆ 즐겨찾기'}
+                </button>
               </div>
               <Arrivals key={station.name} station={station} />
             </>

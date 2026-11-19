@@ -28,6 +28,12 @@ services:
       - type: rewrite
         source: /api/subway/*
         destination: http://swopenapi.seoul.go.kr/api/subway/*
+      - type: rewrite
+        source: /api/seoulbus/*
+        destination: http://ws.bus.go.kr/api/rest/*
+      - type: rewrite
+        source: /api/seoulapi/*
+        destination: http://openapi.seoul.go.kr:8088/*
       # 날씨(기상청)·미세먼지(에어코리아) — src/weather.js
       - type: rewrite
         source: /api/kma/*

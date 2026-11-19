@@ -13,6 +13,8 @@ const proxy = {
   '/api/rtms': relay('https://apis.data.go.kr/1613000', /^\/api\/rtms/),
   '/api/opinet': relay('https://www.opinet.co.kr/api', /^\/api\/opinet/),
   '/api/subway': relay('http://swopenapi.seoul.go.kr/api/subway', /^\/api\/subway/),
+  '/api/seoulbus': relay('http://ws.bus.go.kr/api/rest', /^\/api\/seoulbus/),
+  '/api/seoulapi': relay('http://openapi.seoul.go.kr:8088', /^\/api\/seoulapi/),
   '/api/kma': relay('https://apis.data.go.kr/1360000', /^\/api\/kma/),
   '/api/airkorea': relay('https://apis.data.go.kr/B552584', /^\/api\/airkorea/),
 };

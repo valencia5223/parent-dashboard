@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { fetchArrivals, fetchStations, useFetch } from '../api.js';
+import { fetchArrivals, fetchRouteTimes, fetchStations, useFetch } from '../api.js';
 import { markDirty } from '../account.js';
 import { Body, Loading, ErrorBox } from './Card.jsx';
 
@@ -7,28 +7,59 @@ const SHOW = 4; // 처음에 보여 줄 노선 수 (나머지는 '더 보기')
 const STOP_SHOW = 6; // 처음에 보여 줄 정류장 수
 const minText = (m) => (m == null ? '' : m <= 1 ? '곧 도착' : `${m}분`);
 
+const CROWD = { 1: ['여유', 'crowd-1'], 2: ['보통', 'crowd-2'], 3: ['혼잡', 'crowd-3'], 4: ['매우 혼잡', 'crowd-4'] };
+
+// 노선을 누르면 펼치는 첫차·막차·배차 간격 (서울 버스는 도착 정보에 같이 오고, 경기 버스는 노선 정보를 따로 받는다)
+function BusTimes({ b }) {
+  const state = useFetch(() => (b.times ? Promise.resolve(b.times) : fetchRouteTimes(b)), [b.routeId]);
+  if (state.error) return <p className="bus-times">첫차·막차 정보를 받지 못했어요</p>;
+  if (state.loading) return <p className="bus-times">불러오는 중…</p>;
+  const t = state.data;
+  if (!t || (!t.first && !t.last)) return <p className="bus-times">첫차·막차 정보가 없어요</p>;
+  return (
+    <p className="bus-times">
+      {t.first && <span>첫차 <b>{t.first}</b></span>}
+      {t.last && <span>막차 <b>{t.last}</b></span>}
+      {t.alloc && <span>배차 <b>{t.alloc}</b></span>}
+      <small>{t.here ? '이 정류장 기준' : `${t.from ? `${t.from} ` : '기점 '}출발 기준 · 이 정류장은 더 늦게 와요`}</small>
+    </p>
+  );
+}
+
 function BusRow({ b }) {
+  const [open, setOpen] = useState(false);
+  const crowd = CROWD[b.crowd1];
   const sub = [
     b.stops1 != null && `${b.stops1}정류장 전`,
     b.seats1 != null && (b.seats1 === 0 ? '빈자리 없음' : `빈자리 ${b.seats1}`),
   ].filter(Boolean).join(' · ');
   return (
     <li className={b.min1 != null && b.min1 <= 3 ? 'bus-soon' : ''}>
-      <div className="bus-left">
-        <span className="bus-route">{b.route}</span>
-        {b.dest && <span className="bus-dest">{b.dest} 방면</span>}
-      </div>
-      <div className="bus-right">
-        <strong className="bus-min">{minText(b.min1) || '정보 없음'}</strong>
-        {sub && <small>{sub}</small>}
-        {b.min2 != null && <small>다음 {minText(b.min2)}</small>}
-      </div>
+      <button type="button" className="bus-row" onClick={() => setOpen(!open)} aria-expanded={open} title="눌러서 첫차·막차 보기">
+        <div className="bus-left">
+          <span className="bus-route">
+            {b.route}
+            {b.low1 && <span className="bus-tag tag-low" title="저상버스(계단 없음)">♿ 저상</span>}
+            {b.last1 && <span className="bus-tag tag-last">막차</span>}
+          </span>
+          {b.dest && <span className="bus-dest">{b.dest} 방면</span>}
+        </div>
+        <div className="bus-right">
+          <strong className="bus-min">
+            {crowd && <span className={`bus-crowd ${crowd[1]}`}>{crowd[0]}</span>}
+            {minText(b.min1) || b.note1 || '정보 없음'}
+          </strong>
+          {sub && <small>{sub}</small>}
+          {b.min2 != null && <small>다음 {minText(b.min2)}{b.low2 ? ' (저상)' : ''}</small>}
+        </div>
+      </button>
+      {open && <BusTimes b={b} />}
     </li>
   );
 }
 
 function Arrivals({ station }) {
-  const state = useFetch(() => fetchArrivals(station.id), [station.id], { interval: 30e3 });
+  const state = useFetch(() => fetchArrivals(station), [station.id], { interval: 30e3 });
   const [all, setAll] = useState(false);
   if (state.data == null) return state.error ? <ErrorBox error={state.error} onRetry={state.reload} /> : <Loading lines={4} />;
 
@@ -50,7 +81,7 @@ function Arrivals({ station }) {
           {all ? '접기' : `노선 ${list.length - SHOW}개 더 보기`}
         </button>
       )}
-      <p className="card-foot">30초마다 저절로 새로 고쳐요</p>
+      <p className="card-foot">30초마다 저절로 새로 고쳐요 · 노선을 누르면 첫차·막차 · 혼잡도는 교통카드 기록으로 추정한 값</p>
     </>
   );
 }

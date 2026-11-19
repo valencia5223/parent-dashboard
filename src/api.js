@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import { FetchError, cached, timeoutSignal } from './sources.js';
 import { kmaWeather, airKorea } from './weather.js';
 
-export { fetchStations, fetchArrivals, fetchGas, fetchApt, fetchAptList, loadRegions, DEFAULT_APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchSubwayStations, fetchSubwayArrivals, SUBWAY_LINES } from './sources.js';
+export { fetchStations, fetchArrivals, fetchGas, fetchApt, fetchAptList, loadRegions, DEFAULT_APTS, fetchPharmacies, fetchEmergency, fetchKidsClinics, fetchMoonClinics, fetchSubwayStations, fetchSubwayArrivals, fetchSubwayTimes, fetchRouteTimes, trainTime, SUBWAY_LINES } from './sources.js';
 
 export async function getJSON(url, { timeout = 20000 } = {}) {
   let res;

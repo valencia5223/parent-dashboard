@@ -5,6 +5,8 @@
 //   /api/rtms/*   → https://apis.data.go.kr/1613000/*   (국토부 실거래가)
 //   /api/opinet/* → https://www.opinet.co.kr/api/*     (오피넷)
 //   /api/kma/*, /api/airkorea/* → 날씨·미세먼지 (src/weather.js)
+//   /api/seoulbus/* → http://ws.bus.go.kr/api/rest/*   (서울 버스, 공공데이터포털 키, http 만 됨)
+//   /api/seoulapi/* → http://openapi.seoul.go.kr:8088/* (서울 열린데이터광장: 지하철 시간표, 지하철 키)
 // 키는 빌드할 때 환경변수(VITE_DATA_GO_KR_KEY, VITE_OPINET_KEY)로 들어와 화면 코드에 포함된다.
 // 정적 사이트라 숨길 수 없으므로, 문제가 생기면 키를 재발급하면 된다.
 
@@ -99,6 +101,8 @@ export function checkGatewayError(text) {
   throw new FetchError(msg, reason === '22' ? 'LIMIT' : 'BAD_KEY');
 }
 
+import { HOLIDAYS } from './holidays.js';
+
 export const toArr = (v) => (v == null ? [] : Array.isArray(v) ? v : [v]);
 export const num = (v) => (v === '' || v == null || Number.isNaN(Number(v)) ? null : Number(v));
 
@@ -180,26 +184,128 @@ function stationDirection(stationId, key) {
   }, { persist: true });
 }
 
-export function fetchArrivals(stationId) {
+// 오늘이 평일·토요일·일요일(공휴일 포함) 중 무엇인지. 새벽 3시 전은 전날 운행으로 본다(막차가 자정을 넘김).
+export function serviceDay(now = Date.now()) {
+  const d = new Date(now + 9 * 3600e3 - 3 * 3600e3);
+  const ymd = d.toISOString().slice(0, 10);
+  const w = d.getUTCDay();
+  if (w === 0 || HOLIDAYS.has(ymd)) return 'sun';
+  return w === 6 ? 'sat' : 'we';
+}
+
+// 혼잡도는 1 여유 · 2 보통 · 3 혼잡 · 4 매우 혼잡 으로 맞춘다(경기: 1~4, 서울: 3~6, 0 은 정보 없음)
+const gbisCrowd = (v) => (num(v) >= 1 && num(v) <= 4 ? num(v) : null);
+const seoulCrowd = (v) => (num(v) >= 3 && num(v) <= 6 ? num(v) - 2 : null);
+// 서울 정류장(정류장 id 가 1로 시작하는 9자리, 경기도 버스정보도 같은 id 를 씀)
+const isSeoulStop = (s) => s.region === '서울' || /^1[0-2]\d{7}$/.test(String(s.id));
+const hhmm = (v) => { const t = String(v || '').trim(); return /^\d{4}$/.test(t) ? `${t.slice(0, 2)}:${t.slice(2)}` : ''; };
+
+// station: { id, no(정류장 번호 = 서울 arsId), region }
+export function fetchArrivals(station) {
   const key = dataKey();
   if (!key) return Promise.reject(needKey('공공데이터포털'));
-  return cached(`arr:${stationId}`, 20e3, async () => {
-    const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
-    const list = gbisList(await getText(`/api/gbis/busarrivalservice/v2/getBusArrivalListv2?${q}`), 'busArrivalList');
-    // 빈자리는 좌석버스(직행좌석 11·좌석 12·광역급행 14·시외 16 등)만 의미가 있다. 일반버스는 0 이나 -1 로 온다.
-    const SEAT_TYPES = new Set(['11', '12', '14', '16', '21', '22']);
-    const seat = (b) => (SEAT_TYPES.has(String(b.routeTypeCd)) && num(b.remainSeatCnt1) != null && num(b.remainSeatCnt1) >= 0 ? num(b.remainSeatCnt1) : null);
-    return list
-      .map((b) => ({
-        routeId: String(b.routeId),
-        route: b.routeName ? String(b.routeName) : String(b.routeId),
-        dest: b.routeDestName || '',
-        min1: num(b.predictTime1),
-        min2: num(b.predictTime2),
-        stops1: num(b.locationNo1),
-        seats1: seat(b),
-      }))
-      .sort((a, b) => (a.min1 ?? 999) - (b.min1 ?? 999));
+  return cached(`arr2:${station.id}`, 20e3, async () => {
+    const seoul = isSeoulStop(station) && /^\d{5}$/.test(String(station.no || '').trim());
+    // 서울 정류장은 경기 버스(경기도 자료) + 서울 버스(서울시 자료)를 합친다. 한쪽만 실패하면 다른 쪽만 보여 준다.
+    const [g, s] = await Promise.allSettled([gbisArrivals(station.id, key), seoul ? seoulArrivals(String(station.no).trim(), key) : Promise.resolve([])]);
+    if (g.status === 'rejected' && (!seoul || s.status === 'rejected')) throw g.reason;
+    const sl = s.status === 'fulfilled' ? s.value : [];
+    const names = new Set(sl.map((b) => b.route));
+    const gl = g.status === 'fulfilled' ? g.value.filter((b) => !names.has(b.route)) : [];
+    return [...gl, ...sl].sort((a, b) => (a.min1 ?? 999) - (b.min1 ?? 999));
+  });
+}
+
+async function gbisArrivals(stationId, key) {
+  const q = new URLSearchParams({ serviceKey: key, stationId, format: 'json' });
+  const list = gbisList(await getText(`/api/gbis/busarrivalservice/v2/getBusArrivalListv2?${q}`), 'busArrivalList');
+  // 빈자리는 좌석버스(직행좌석 11·좌석 12·광역급행 14·시외 16 등)만 의미가 있다. 일반버스는 0 이나 -1 로 온다.
+  const SEAT_TYPES = new Set(['11', '12', '14', '16', '21', '22']);
+  const seat = (b) => (SEAT_TYPES.has(String(b.routeTypeCd)) && num(b.remainSeatCnt1) != null && num(b.remainSeatCnt1) >= 0 ? num(b.remainSeatCnt1) : null);
+  return list.map((b) => ({
+    src: 'gbis',
+    routeId: String(b.routeId),
+    route: b.routeName ? String(b.routeName) : String(b.routeId),
+    dest: b.routeDestName || '',
+    min1: num(b.predictTime1),
+    min2: num(b.predictTime2),
+    stops1: num(b.locationNo1),
+    seats1: seat(b),
+    low1: String(b.lowPlate1) === '1',
+    low2: String(b.lowPlate2) === '1',
+    crowd1: gbisCrowd(b.crowded1),
+    staOrder: num(b.staOrder),
+    turnSeq: num(b.turnSeq),
+  }));
+}
+
+// 서울 버스 도착 메시지: '5분후[1번째 전]', '3분20초후[2번째 전]', '곧 도착', '운행종료', '출발대기'
+function seoulMsg(msg) {
+  const m = String(msg || '');
+  if (!m) return { min: null, stops: null, note: '' };
+  if (/곧 도착/.test(m)) return { min: 0, stops: null, note: '' };
+  const min = m.match(/(\d+)분/);
+  const stops = m.match(/\[(\d+)번째 전\]/);
+  if (!min) return { min: null, stops: null, note: m.replace(/\[.*?\]/g, '').trim() };
+  return { min: Number(min[1]), stops: stops ? Number(stops[1]) : null, note: '' };
+}
+
+async function seoulArrivals(arsId, key) {
+  const q = new URLSearchParams({ serviceKey: key, arsId, resultType: 'json' });
+  const text = await getText(`/api/seoulbus/stationinfo/getStationByUid?${q}`);
+  checkGatewayError(text);
+  let j;
+  try { j = JSON.parse(text); } catch { throw new FetchError('서울 버스 정보를 읽지 못했어요'); }
+  const code = String(j?.msgHeader?.headerCd ?? '0');
+  if (code === '4') return [];
+  if (code !== '0') throw new FetchError(j?.msgHeader?.headerMsg || `서울 버스 정보 오류 (${code})`);
+  return toArr(j?.msgBody?.itemList).map((b) => {
+    const a1 = seoulMsg(b.arrmsg1);
+    const a2 = seoulMsg(b.arrmsg2);
+    return {
+      src: 'seoul',
+      routeId: `s${b.busRouteId}`,
+      route: String(b.rtNm || b.busRouteAbrv || ''),
+      dest: b.adirection || '',
+      min1: a1.min,
+      min2: a2.min,
+      stops1: a1.stops,
+      note1: a1.note, // 운행종료·출발대기 등
+      seats1: null,
+      low1: String(b.busType1) === '1',
+      low2: String(b.busType2) === '1',
+      crowd1: seoulCrowd(b.congestion1),
+      last1: String(b.isLast1) === '1', // 이 버스가 막차
+      // 서울 자료는 이 정류장 기준 첫차·막차와 배차 간격이 같이 온다
+      times: { first: hhmm(b.firstTm), last: hhmm(b.lastTm), alloc: num(b.term) ? `${num(b.term)}분` : '', here: true },
+    };
+  });
+}
+
+// 경기 버스 노선의 첫차·막차·배차 간격(기점·종점 출발 기준). 이 정류장이 회차 전이면 기점, 뒤면 종점 출발 시각.
+export function fetchRouteTimes(b) {
+  const key = dataKey();
+  if (!key) return Promise.reject(needKey('공공데이터포털'));
+  return cached(`rinfo:${b.routeId}`, 24 * 3600e3, async () => {
+    const q = new URLSearchParams({ serviceKey: key, routeId: b.routeId, format: 'json' });
+    const list = gbisList(await getText(`/api/gbis/busrouteservice/v2/getBusRouteInfoItemv2?${q}`), 'busRouteInfoItem');
+    return list[0] || null;
+  }, { persist: true }).then((info) => {
+    if (!info) return null;
+    const day = serviceDay();
+    const down = b.staOrder != null && b.turnSeq != null && b.turnSeq > 1 && b.staOrder >= b.turnSeq;
+    const dir = down ? 'Down' : 'Up';
+    const pick = (k) => info[`${day}${k}`] ?? info[k[0].toLowerCase() + k.slice(1)] ?? null;
+    const peak = num(pick('PeekAlloc'));
+    const normal = num(pick('NPeekAlloc'));
+    const allocs = [...new Set([peak, normal].filter((v) => v > 0))].sort((x, y) => x - y);
+    const val = (k) => { const v = String(pick(k) ?? '').trim(); return /^\d{1,2}:\d{2}$/.test(v) ? v : ''; };
+    let first = val(`${dir}FirstTime`);
+    let last = val(`${dir}LastTime`);
+    let from = down ? info.endStationName || info.turnStNm || '' : info.startStationName || '';
+    // 순환 노선(마을버스 등)은 종점 출발 시각이 0 으로 온다 → 기점에서 한 바퀴 도는 시각을 쓴다
+    if (down && !first && !last) { first = val('UpFirstTime'); last = val('UpLastTime'); from = info.startStationName || ''; }
+    return { first, last, alloc: allocs.length ? `${allocs.join('~')}분` : '', from, here: false };
   });
 }
 
@@ -543,6 +649,7 @@ export function fetchSubwayArrivals(station) {
       dest: t.bstatnNm || (t.trainLineNm || '').split('행')[0],
       way: ((t.trainLineNm || '').split('-')[1] || '').replace(/\(.*\)/, '').trim(), // '대야미방면' ('(급행)' 은 kind 로)
       kind: t.btrainSttus && t.btrainSttus !== '일반' ? t.btrainSttus : '', // 급행 등
+      last: String(t.lstcarAt) === '1', // 막차
       sec: num(t.barvlDt) || 0,
       at: t.recptnDt ? Date.parse(t.recptnDt.replace(' ', 'T') + '+09:00') : null,
       msg: t.arvlMsg2 || '',
@@ -550,5 +657,69 @@ export function fetchSubwayArrivals(station) {
       code: String(t.arvlCd ?? ''),
       order: t.ordkey || '',
     }));
+  });
+}
+
+// ---------- 지하철 막차·첫차 (서울 열린데이터광장 시간표, 실시간 도착과 같은 키) ----------
+// 역 이름 → 노선별 역 코드(SearchInfoBySubwayNameService) → 요일·방향별 시간표(SearchSTNTimeTableByIDService).
+// 2026-11 확인: 이 시간표 API 는 역마다 자료가 비어 오는 일이 잦고, 같은 역도 시간에 따라 있다 없다 한다.
+// 없으면 막차 줄을 숨기고(기억하지 않아 다음에 다시 물어봄), 실시간 도착의 막차 표시(lstcarAt)는 늘 쓴다.
+// openapi.seoul.go.kr:8088 도 http 만 되어 /api/seoulapi 로 중계한다.
+const lineKey = (v) => String(v || '').replace(/\s/g, '').replace(/^0+/, '').replace(/선$/, '');
+// 실시간 노선 이름(SUBWAY_LINES, '4호선'·'경의중앙선')과 시간표 노선 이름(LINE_NUM, '04호선'·'경의선')을 맞춘다
+const sameLine = (a, b) => { const x = lineKey(a); const y = lineKey(b); return !!x && !!y && (x === y || x.startsWith(y) || y.startsWith(x)); };
+
+function subwayCodes(station) {
+  const key = subwayKey();
+  // 시간표 쪽 역 이름은 '서울'(GTX-A)과 '서울역'(1·4호선 등)처럼 '역' 이 붙기도 해서 둘 다 찾는다
+  return cached(`subcd2:${station}`, 30 * 24 * 3600e3, async () => {
+    const out = [];
+    for (const name of [station, `${station}역`]) {
+      const text = await getText(`/api/seoulapi/${encodeURIComponent(key)}/json/SearchInfoBySubwayNameService/1/20/${encodeURIComponent(name)}/`);
+      let j;
+      try { j = JSON.parse(text); } catch { throw new FetchError('지하철 역 정보를 읽지 못했어요'); }
+      for (const r of j?.SearchInfoBySubwayNameService?.row || []) {
+        if (r.STATION_NM === name) out.push({ code: String(r.STATION_CD), line: String(r.LINE_NUM) });
+      }
+    }
+    if (!out.length) throw new FetchError('역 코드 없음', 'NO_TT'); // 빈 결과는 기억하지 않는다
+    return out;
+  }, { persist: true });
+}
+
+const toMin = (t) => { const [h, m] = String(t).split(':').map(Number); return h * 60 + m; };
+// '24:34:00' → '0:34'
+export const trainTime = (t) => { const [h, m] = String(t).split(':').map(Number); return `${h % 24}:${String(m).padStart(2, '0')}`; };
+
+// 한 역·노선·방향(상행/내선 = 1, 하행/외선 = 2)의 오늘 첫차·막차 { first, last, lastDest, passed }
+export function fetchSubwayTimes(station, lineId, dir) {
+  const key = subwayKey();
+  if (!key) return Promise.reject(needKey('서울 열린데이터광장 지하철'));
+  const io = /상행|내선/.test(dir) ? '1' : '2';
+  const week = { we: '1', sat: '2', sun: '3' }[serviceDay()];
+  const lineName = SUBWAY_LINES[lineId]?.[0] || '';
+  return cached(`subtt2:${station}:${lineId}:${week}:${io}`, 7 * 24 * 3600e3, async () => {
+    const codes = await subwayCodes(station);
+    const c = codes.find((x) => sameLine(x.line, lineName));
+    if (!c) throw new FetchError('시간표 없는 노선', 'NO_TT');
+    const text = await getText(`/api/seoulapi/${encodeURIComponent(key)}/json/SearchSTNTimeTableByIDService/1/500/${c.code}/${week}/${io}/`);
+    let j;
+    try { j = JSON.parse(text); } catch { throw new FetchError('지하철 시간표를 읽지 못했어요'); }
+    const rows = (j?.SearchSTNTimeTableByIDService?.row || [])
+      // 이 역이 종착인 열차(타지 못함)는 뺀다
+      .filter((r) => r.SUBWAYENAME !== r.STATION_NM && `${r.SUBWAYENAME}역` !== r.STATION_NM)
+      .map((r) => ({ t: r.LEFTTIME && r.LEFTTIME !== '00:00:00' ? r.LEFTTIME : r.ARRIVETIME, dest: r.SUBWAYENAME || '' }))
+      .filter((r) => r.t && r.t !== '00:00:00')
+      .sort((a, b) => toMin(a.t) - toMin(b.t));
+    // 자료가 없으면 기억하지 않고(던져서) 다음에 다시 물어본다(같은 역도 때에 따라 비어 오는 일이 있음)
+    if (!rows.length) throw new FetchError('시간표 없음', 'NO_TT');
+    return { first: rows[0].t, last: rows[rows.length - 1].t, lastDest: rows[rows.length - 1].dest };
+  }, { persist: true }).then((r) => {
+    if (!r) return null;
+    // 지금이 막차 뒤인지 (새벽 3시 전은 전날의 연장으로 본다)
+    const d = new Date(Date.now() + 9 * 3600e3);
+    let now = d.getUTCHours() * 60 + d.getUTCMinutes();
+    if (now < 180) now += 1440;
+    return { ...r, passed: now > toMin(r.last) };
   });
 }
