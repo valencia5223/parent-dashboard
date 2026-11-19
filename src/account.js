@@ -105,6 +105,29 @@ function writeLocal(d) {
   }
   window.dispatchEvent(new Event('pd-data'));
 }
+// 목록마다 같은 항목을 가리는 기준. 같은 항목이 두 번 들어가 있으면 앞의 것만 남긴다.
+const LIST_KEY = {
+  apts: (a) => a?.id,
+  busFavs: (a) => a?.id,
+  subwayFavs: (a) => a?.name,
+  weatherCities: (a) => a?.id,
+  recentPlaces: (a) => `${a?.lat},${a?.lng}`,
+};
+function tidy(d) {
+  if (!d) return d;
+  const out = { ...d };
+  for (const [k, keyOf] of Object.entries(LIST_KEY)) {
+    if (!Array.isArray(out[k])) continue;
+    const seen = new Set();
+    out[k] = out[k].filter((a) => {
+      const id = keyOf(a);
+      if (id == null || seen.has(id)) return id == null;
+      seen.add(id);
+      return true;
+    });
+  }
+  return out;
+}
 const lifeEmpty = (l) => !l || (!l.events?.length && !Object.values(l.trash || {}).some((v) => v?.length));
 
 // 처음 이 기기를 계정에 묶을 때: 계정에 있던 것 + 이 기기에서 만든 것을 합친다
@@ -120,14 +143,11 @@ function merge(remote, local) {
     out.life = { ...rl, events: [...byId.values()], trash: newerLocal ? ll.trash : rl.trash, updatedAt: Math.max(ll.updatedAt || 0, rl.updatedAt || 0) };
   }
   // 목록은 계정 것 뒤에 이 기기에만 있던 것을 붙이고, 나머지는 계정 값이 없을 때만 이 기기 값
-  const union = (ra, la, same) => (!Array.isArray(ra) ? la ?? null : !Array.isArray(la) ? ra : [...ra, ...la.filter((a) => !ra.some((b) => same(a, b)))]);
-  out.apts = union(remote?.apts, local.apts, (a, b) => a.id === b.id);
-  out.busFavs = union(remote?.busFavs, local.busFavs, (a, b) => JSON.stringify(a) === JSON.stringify(b));
-  out.subwayFavs = union(remote?.subwayFavs, local.subwayFavs, (a, b) => a.name === b.name);
-  out.weatherCities = union(remote?.weatherCities, local.weatherCities, (a, b) => a.id === b.id);
-  out.recentPlaces = union(remote?.recentPlaces, local.recentPlaces, (a, b) => a.lat === b.lat && a.lng === b.lng);
+  // (같은 항목은 id 로 가린다. 예전에는 즐겨찾기 정류장을 내용 전체로 비교해서, 방면 글자 등이 다르면 같은 정류장이 두 번 들어갔다)
+  const union = (ra, la) => (!Array.isArray(ra) ? la ?? null : !Array.isArray(la) ? ra : [...ra, ...la]);
+  for (const k of Object.keys(LIST_KEY)) out[k] = union(remote?.[k], local[k]);
   for (const k of ['fuel', 'radius']) out[k] = remote?.[k] ?? local[k] ?? null;
-  return out;
+  return tidy(out);
 }
 
 let lastPull = 0;
@@ -150,9 +170,12 @@ export function pull() {
     } else if (ls.get(DIRTY_KEY)) {
       await push(); // 연결이 끊긴 동안 이 기기에서 고친 것
     } else if (row) {
-      const same = Object.keys(SYNC_KEYS).every((k) => JSON.stringify(row.data?.[k] ?? null) === JSON.stringify(local[k]));
-      if (!same) writeLocal(row.data);
-      setState({ lastSync: Date.now() });
+      const data = tidy(row.data);
+      const same = Object.keys(SYNC_KEYS).every((k) => JSON.stringify(data?.[k] ?? null) === JSON.stringify(local[k]));
+      if (!same) writeLocal(data);
+      // 계정에 같은 항목이 두 번 들어가 있었으면 정리한 것을 다시 올린다
+      if (JSON.stringify(data) !== JSON.stringify(row.data)) await push();
+      else setState({ lastSync: Date.now() });
     } else {
       await push();
     }
