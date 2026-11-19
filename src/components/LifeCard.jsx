@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Card from './Card.jsx';
 import { fetchHolidays } from '../holidays.js';
+import { markDirty, useAccount } from '../account.js';
 import {
   KINDS, REPEATS, TRASH, WEEK, addDays, dayText, daysBetween, ddayText, dow, kindOf, loadLife, loadLunar,
   occurrences, parts, saveLife, solarToLunar, todayStr, yearsText, ymd,
 } from '../lifeData.js';
 
-// 생활 달력: 오늘(음력·쓰레기) · 달력 · 내 날짜(D-day). 내 날짜는 이 기기에만 저장.
+// 생활 달력: 오늘(음력·쓰레기) · 달력 · 내 일정(D-day). 로그인하면 계정에, 아니면 이 기기에만 저장(account.js).
 const UPCOMING_SHOW = 5;
 
 export default function LifeCard() {
@@ -16,7 +17,15 @@ export default function LifeCard() {
   const [lunarReady, setLunarReady] = useState(false);
   const [form, setForm] = useState(null); // 추가/고치기 창: { ...일정 }
   const [trashOpen, setTrashOpen] = useState(false);
+  const { user } = useAccount();
   const year = parts(today)[0];
+
+  // 계정에서 받은 내용으로 이 기기 저장이 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => setData(loadLife());
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
 
   // 자정이 지나면 오늘을 바꾼다
   useEffect(() => {
@@ -31,7 +40,7 @@ export default function LifeCard() {
     return () => { alive = false; };
   }, [year]);
 
-  const update = (next) => setData(saveLife(next));
+  const update = (next) => { setData(saveLife(next)); markDirty(); };
   const saveEvent = (ev) => {
     const events = ev.id
       ? data.events.map((e) => (e.id === ev.id ? ev : e))
@@ -99,7 +108,7 @@ export default function LifeCard() {
           </div>
         )}
       </section>
-      <p className="card-foot">내 일정은 이 기기에만 저장돼요 · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
+      <p className="card-foot">{user ? '내 일정은 계정에 저장돼 다른 기기에서도 보여요' : '내 일정은 이 기기에만 저장돼요(로그인하면 계정에 저장)'} · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
       {form && <EventForm ev={form} onSave={saveEvent} onRemove={removeEvent} onClose={() => setForm(null)} />}
     </Card>
   );

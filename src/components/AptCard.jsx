@@ -1,5 +1,6 @@
-import { lazy, Suspense, useMemo, useState } from 'react';
+import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
+import { markDirty } from '../account.js';
 import Card, { Body } from './Card.jsx';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
@@ -42,7 +43,7 @@ function Change({ c }) {
   );
 }
 
-// 단지 목록(pd_apts)과 고른 단지(pd_apt)는 이 기기에 기억한다. 목록 저장이 없으면 기본 단지.
+// 단지 목록(pd_apts)과 고른 단지(pd_apt)는 이 기기에 기억한다(로그인하면 목록은 계정에도, account.js). 목록 저장이 없으면 기본 단지.
 const loadJSON = (k) => { try { return JSON.parse(localStorage.getItem(k)); } catch { return null; } };
 const saveJSON = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* 저장 못 해도 괜찮음 */ } };
 const loadApts = () => {
@@ -61,7 +62,13 @@ export default function AptCard({ pos }) {
   const state = useFetch(() => fetchApt(apt), [apt?.id, apt?.label], { interval: 6 * 3600e3, enabled: !!apt });
 
   const pick = (v) => { setId(v); setMode(null); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
-  const update = (list) => { setApts(list); saveJSON('pd_apts', list); };
+  const update = (list) => { setApts(list); saveJSON('pd_apts', list); markDirty(); };
+  // 계정에서 받은 목록으로 바뀌면 다시 읽는다
+  useEffect(() => {
+    const re = () => setApts(loadApts());
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
   const add = (a) => {
     if (!apts.some((x) => x.id === a.id)) update([...apts, a]);
     pick(a.id);

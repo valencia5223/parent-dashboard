@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { reverseGeocode } from './api.js';
 import WeatherCard from './components/WeatherCard.jsx';
 import TransitCard from './components/TransitCard.jsx';
@@ -7,6 +7,10 @@ import AptCard from './components/AptCard.jsx';
 import HealthCard from './components/HealthCard.jsx';
 import LifeCard from './components/LifeCard.jsx';
 import PlacePicker from './components/PlacePicker.jsx';
+import { initAccount, useAccount } from './account.js';
+
+const AccountModal = lazy(() => import('./components/AccountModal.jsx'));
+initAccount();
 
 // 위치를 못 받으면 산본역 근처로
 const DEFAULT_POS = { lat: 37.3586, lng: 126.933, source: 'default' };
@@ -145,6 +149,11 @@ export default function App() {
   const { pos, status, label, recent, gpsError, locate, pick, removeRecent } = useLocation();
   const [refreshKey, setRefreshKey] = useState(0);
   const [picking, setPicking] = useState(false);
+  const acc = useAccount();
+  const [accountOpen, setAccountOpen] = useState(false);
+  // 비밀번호 재설정 링크로 들어오면 새 비밀번호 창을 연다
+  useEffect(() => { if (acc.recovery) setAccountOpen(true); }, [acc.recovery]);
+  const closeAccount = useCallback(() => setAccountOpen(false), []);
   const [mtab, setMtab] = useState(() => {
     const v = load(MTAB_KEY, 'weather');
     return CARD_TABS.some((t) => t.id === v) ? v : 'weather';
@@ -194,8 +203,19 @@ export default function App() {
           </p>
           {gpsError && <p className="gps-error" role="alert">{gpsError}</p>}
         </div>
-        <Clock />
+        <div className="head-side">
+          <Clock />
+          <button
+            type="button"
+            className={`btn btn-sm btn-account${acc.user ? ' btn-on' : ''}`}
+            onClick={() => setAccountOpen(true)}
+            title={acc.user ? `${acc.user.email} 로 로그인됨` : '로그인하면 내 일정·단지가 계정에 저장돼요'}
+          >
+            <span aria-hidden>👤</span> {acc.user ? '내 계정' : '로그인'}
+          </button>
+        </div>
       </header>
+      {accountOpen && <Suspense fallback={null}><AccountModal onClose={closeAccount} /></Suspense>}
 
       {pos ? (
         <>

@@ -42,6 +42,17 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .where { margin-top: 6px; color: var(--text-body); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
 .link-btn { background: none; border: 0; padding: 4px 2px; color: var(--primary); text-decoration: underline; font-size: 0.9rem; }
 .clock { text-align: right; flex-shrink: 0; }
+.head-side { display: flex; flex-direction: column; align-items: flex-end; gap: 8px; flex-shrink: 0; }
+.btn-account { white-space: nowrap; }
+/* 로그인 창 */
+.account-body { display: flex; flex-direction: column; gap: 12px; }
+.account-note { color: var(--text-sub); font-size: 0.92rem; line-height: 1.5; }
+.account-email { font-weight: 800; font-size: 1.05rem; word-break: break-all; }
+.account-msg { color: #b91c1c; background: #fef2f2; border-radius: var(--radius-md); padding: 10px 12px; font-size: 0.92rem; font-weight: 600; line-height: 1.5; }
+.account-msg.ok { color: var(--text-main); background: var(--bg-subtle); }
+.account-confirm { display: flex; flex-direction: column; gap: 10px; border-top: 1px solid var(--border-color); padding-top: 12px; }
+.account .toggle-row { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn-wide { width: 100%; min-height: 48px; font-size: 1.05rem; }
 .clock-date { color: var(--text-sub); font-size: 0.95rem; }
 .clock-time { font-size: 1.7rem; font-weight: 800; }
 
@@ -492,7 +503,9 @@ button.ev-row:hover { border-color: var(--primary); }
   }
   .head-main { display: contents; }
   .app-header h1 { grid-area: title; font-size: 1.2rem; }
-  .clock { grid-area: clock; display: flex; gap: 6px; align-items: baseline; }
+  .head-side { grid-area: clock; flex-direction: row; align-items: center; gap: 8px; }
+  .clock { display: flex; gap: 6px; align-items: baseline; }
+  .clock-date { display: none; }
   .clock-date { font-size: 0.8rem; }
   .clock-time { font-size: 1rem; }
   .where { grid-area: where; margin: 0; flex-wrap: nowrap; gap: 6px; min-width: 0; }
