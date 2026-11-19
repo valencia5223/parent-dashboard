@@ -3,10 +3,10 @@ import Card from './Card.jsx';
 import { fetchHolidays } from '../holidays.js';
 import {
   KINDS, REPEATS, TRASH, WEEK, addDays, dayText, daysBetween, ddayText, dow, kindOf, loadLife, loadLunar,
-  longBreaks, occurrences, parts, saveLife, solarToLunar, todayStr, yearsText, ymd,
+  occurrences, parts, saveLife, solarToLunar, todayStr, yearsText, ymd,
 } from '../lifeData.js';
 
-// 생활 달력: 오늘(음력·쓰레기) · 달력 · 다가오는 쉬는 날 · 내 날짜(D-day). 내 날짜는 이 기기에만 저장.
+// 생활 달력: 오늘(음력·쓰레기) · 달력 · 내 날짜(D-day). 내 날짜는 이 기기에만 저장.
 const UPCOMING_SHOW = 5;
 
 export default function LifeCard() {
@@ -73,7 +73,6 @@ export default function LifeCard() {
         <div className="life-side">
           <Upcoming today={today} events={data.events} lunarReady={lunarReady} onEdit={setForm}
             onAdd={() => setForm({ title: '', date: today, repeat: 'yearly', lunar: false, kind: 'birthday' })} />
-          <Breaks today={today} holidays={holidays} />
         </div>
       </div>
       <section>
@@ -232,39 +231,6 @@ function Upcoming({ today, events, lunarReady, onEdit, onAdd }) {
           {all ? '접기' : `${Math.max(0, list.length - UPCOMING_SHOW) + past.length}개 더 보기`}
         </button>
       )}
-    </section>
-  );
-}
-
-// ---------- 다가오는 쉬는 날 ----------
-function Breaks({ today, holidays }) {
-  const items = useMemo(() => {
-    const to = addDays(today, 365);
-    const breaks = longBreaks(holidays, addDays(today, -10), to).filter((b) => b.to >= today);
-    const inBreak = (s) => breaks.some((b) => s >= b.from && s <= b.to);
-    const singles = Object.keys(holidays).filter((s) => s >= today && s <= to && !inBreak(s))
-      .map((s) => ({ from: s, to: s, days: 1, name: holidays[s] }));
-    return [...breaks, ...singles].sort((a, b) => a.from.localeCompare(b.from)).slice(0, 3);
-  }, [today, holidays]);
-  if (!items.length) return null;
-  return (
-    <section>
-      <h3 className="section-title">다가오는 쉬는 날</h3>
-      <ul className="ev-list">
-        {items.map((b) => {
-          const n = daysBetween(today, b.from);
-          return (
-            <li key={b.from} className="ev-row ev-static">
-              <span className="ev-icon" aria-hidden>🎌</span>
-              <span className="ev-title">
-                {b.name}{b.days >= 3 && <small> 연휴 {b.days}일</small>}
-                <small className="ev-when">{b.days > 1 ? `${dayText(b.from)} ~ ${dayText(b.to)}` : dayText(b.from)}</small>
-              </span>
-              <span className={`dday${n <= 3 ? ' dday-soon' : ''}`}>{n <= 0 ? '쉬는 중' : ddayText(n)}</span>
-            </li>
-          );
-        })}
-      </ul>
     </section>
   );
 }

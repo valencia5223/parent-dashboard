@@ -120,24 +120,3 @@ export function yearsText(ev, on) {
   if (ev.kind === 'anniv') return `${n}주년`;
   return '';
 }
-
-// 공휴일과 앞뒤 주말을 이어 '연휴'로 묶는다(3일 이상만): [{ from, to, days, name }]
-export function longBreaks(holidays, from, to) {
-  const off = (s) => holidays[s] || dow(s) === 0 || dow(s) === 6;
-  const out = [];
-  let s = from;
-  while (s <= to) {
-    if (off(s)) {
-      let e = s;
-      while (off(addDays(e, 1))) e = addDays(e, 1);
-      const days = daysBetween(s, e) + 1;
-      const names = [];
-      for (let d = s; d <= e; d = addDays(d, 1)) if (holidays[d]) names.push(holidays[d].replace(/ 연휴$/, '').replace(/^대체공휴일\((.+)\)$/, '$1'));
-      if (days >= 3 && names.length) out.push({ from: s, to: e, days, name: [...new Set(names)][0] });
-      s = addDays(e, 1);
-    } else {
-      s = addDays(s, 1);
-    }
-  }
-  return out;
-}
