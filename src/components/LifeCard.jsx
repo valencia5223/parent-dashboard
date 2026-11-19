@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import Card from './Card.jsx';
 import { fetchHolidays } from '../holidays.js';
-import { markDirty, useAccount } from '../account.js';
+import { markDirty, openLogin, useAccount } from '../account.js';
 import {
   KINDS, REPEATS, TRASH, WEEK, addDays, dayText, daysBetween, ddayText, dow, kindOf, loadLife, loadLunar,
   occurrences, parts, saveLife, solarToLunar, todayStr, yearsText, ymd,
 } from '../lifeData.js';
 
-// 생활 달력: 오늘(음력·쓰레기) · 달력 · 내 일정(D-day). 로그인하면 계정에, 아니면 이 기기에만 저장(account.js).
+// 생활 달력: 오늘(음력·쓰레기) · 달력 · 내 일정(D-day). 로그인해야 쓸 수 있고 계정에 저장(account.js).
 const UPCOMING_SHOW = 5;
 
 export default function LifeCard() {
@@ -17,7 +17,7 @@ export default function LifeCard() {
   const [lunarReady, setLunarReady] = useState(false);
   const [form, setForm] = useState(null); // 추가/고치기 창: { ...일정 }
   const [trashOpen, setTrashOpen] = useState(false);
-  const { user } = useAccount();
+  const { user, ready } = useAccount();
   const year = parts(today)[0];
 
   // 계정에서 받은 내용으로 이 기기 저장이 바뀌면 다시 읽는다
@@ -40,7 +40,7 @@ export default function LifeCard() {
     return () => { alive = false; };
   }, [year]);
 
-  const update = (next) => { setData(saveLife(next)); markDirty(); };
+  const update = (next) => { if (!user) return; setData(saveLife(next)); markDirty(); };
   const saveEvent = (ev) => {
     const events = ev.id
       ? data.events.map((e) => (e.id === ev.id ? ev : e))
@@ -59,6 +59,21 @@ export default function LifeCard() {
   const trashToday = trashOn(today);
   const trashTomorrow = trashOn(addDays(today, 1));
   const hasTrash = TRASH.some((t) => (data.trash[t.id] || []).length);
+
+  if (!user) {
+    return (
+      <Card title="생활 달력" icon="📅" wide>
+        {!ready ? <p className="empty">로그인 상태를 확인하는 중…</p> : (
+          <div className="life-locked">
+            <p className="life-locked-icon" aria-hidden>🔒</p>
+            <p><strong>생활 달력은 로그인하면 쓸 수 있어요</strong></p>
+            <p className="life-locked-sub">생일·기념일·납부일을 D-day 로 챙기고, 쓰레기 버리는 날을 알려 줘요. 계정에 저장돼서 핸드폰·컴퓨터 어디서든 똑같이 보여요.</p>
+            <button type="button" className="btn btn-primary" onClick={openLogin}>로그인 · 가입</button>
+          </div>
+        )}
+      </Card>
+    );
+  }
 
   return (
     <Card title="생활 달력" icon="📅" wide>
@@ -108,7 +123,7 @@ export default function LifeCard() {
           </div>
         )}
       </section>
-      <p className="card-foot">{user ? '내 일정은 계정에 저장돼 다른 기기에서도 보여요' : '내 일정은 이 기기에만 저장돼요(로그인하면 계정에 저장)'} · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
+      <p className="card-foot">내 일정은 계정에 저장돼 다른 기기에서도 보여요 · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
       {form && <EventForm ev={form} onSave={saveEvent} onRemove={removeEvent} onClose={() => setForm(null)} />}
     </Card>
   );

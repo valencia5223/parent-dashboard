@@ -154,6 +154,11 @@ export default function App() {
   // 비밀번호 재설정 링크로 들어오면 새 비밀번호 창을 연다
   useEffect(() => { if (acc.recovery) setAccountOpen(true); }, [acc.recovery]);
   const closeAccount = useCallback(() => setAccountOpen(false), []);
+  useEffect(() => {
+    const open = () => setAccountOpen(true);
+    window.addEventListener('pd-login', open);
+    return () => window.removeEventListener('pd-login', open);
+  }, []);
   const [mtab, setMtab] = useState(() => {
     const v = load(MTAB_KEY, 'weather');
     return CARD_TABS.some((t) => t.id === v) ? v : 'weather';

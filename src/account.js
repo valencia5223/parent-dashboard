@@ -1,5 +1,5 @@
-// 계정: 이메일+비밀번호로 로그인하면 생활 달력(pd_life_v1)·내 단지 목록(pd_apts)을 계정(Supabase 표 pd_user_data,
-// 한 사람당 한 줄, data jsonb)에 저장하고 다른 기기에서도 같게 보여 준다. 로그인하지 않으면 예전처럼 이 기기에만.
+// 계정: 이메일+비밀번호로 로그인해야 생활 달력(pd_life_v1)·내 단지 목록(pd_apts)을 쓸 수 있고, 계정(Supabase 표 pd_user_data,
+// 한 사람당 한 줄, data jsonb)에 저장해 다른 기기에서도 같게 보여 준다. 로그인 전 이 기기에 있던 것은 처음 로그인할 때 합친다.
 // 화면은 계속 localStorage 를 읽고 쓰며, 저장할 때 markDirty() 를 부르면 잠시 뒤 계정에 올린다.
 // 계정 데이터로 이 기기 저장을 바꾸면 'pd-data' 이벤트를 보내 카드가 다시 읽게 한다.
 // supabase-js 는 로그인한 적이 있거나 로그인 창을 열 때만 불러온다.
@@ -149,6 +149,9 @@ export function markDirty() {
 window.addEventListener('pagehide', () => {
   if (pushTimer && ls.get(DIRTY_KEY) && state.user) { clearTimeout(pushTimer); push().catch(() => {}); }
 });
+
+// 카드에서 로그인 창 열기 (App 이 듣는다)
+export const openLogin = () => window.dispatchEvent(new Event('pd-login'));
 
 // ---------- 로그인 ----------
 function friendly(e) {

@@ -1,6 +1,6 @@
 import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
-import { markDirty } from '../account.js';
+import { markDirty, openLogin, useAccount } from '../account.js';
 import Card, { Body } from './Card.jsx';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
@@ -53,7 +53,10 @@ const loadApts = () => {
 const savedId = () => { try { return localStorage.getItem('pd_apt'); } catch { return null; } };
 
 export default function AptCard({ pos }) {
-  const [apts, setApts] = useState(loadApts);
+  const { user } = useAccount();
+  const [saved, setSaved] = useState(loadApts);
+  // 단지 추가·이름 바꾸기·빼기는 로그인해야 쓸 수 있고, 로그인 전에는 기본 단지만 보여 준다
+  const apts = user ? saved : DEFAULT_APTS;
   const [id, setId] = useState(() => (apts.some((a) => a.id === savedId()) ? savedId() : apts[0]?.id));
   const [adding, setAdding] = useState(false);
   const [mode, setMode] = useState(null); // 'rename' | 'remove'
@@ -62,10 +65,10 @@ export default function AptCard({ pos }) {
   const state = useFetch(() => fetchApt(apt), [apt?.id, apt?.label], { interval: 6 * 3600e3, enabled: !!apt });
 
   const pick = (v) => { setId(v); setMode(null); try { localStorage.setItem('pd_apt', v); } catch { /* 저장 못 해도 괜찮음 */ } };
-  const update = (list) => { setApts(list); saveJSON('pd_apts', list); markDirty(); };
+  const update = (list) => { if (!user) return; setSaved(list); saveJSON('pd_apts', list); markDirty(); };
   // 계정에서 받은 목록으로 바뀌면 다시 읽는다
   useEffect(() => {
-    const re = () => setApts(loadApts());
+    const re = () => setSaved(loadApts());
     window.addEventListener('pd-data', re);
     return () => window.removeEventListener('pd-data', re);
   }, []);
@@ -94,7 +97,9 @@ export default function AptCard({ pos }) {
             {a.label}
           </button>
         ))}
-        <button type="button" className="chip chip-add" onClick={() => setAdding(true)}>＋ 단지 추가</button>
+        {user
+          ? <button type="button" className="chip chip-add" onClick={() => setAdding(true)}>＋ 단지 추가</button>
+          : <button type="button" className="chip chip-add" onClick={openLogin} title="로그인하면 원하는 단지를 추가할 수 있어요">🔒 로그인하고 단지 추가</button>}
       </div>
 
       {!apt ? (
@@ -113,7 +118,7 @@ export default function AptCard({ pos }) {
               <button type="button" className="btn btn-sm btn-danger" onClick={remove}>빼기</button>
               <button type="button" className="btn btn-sm" onClick={() => setMode(null)}>취소</button>
             </div>
-          ) : (
+          ) : user && (
             <div className="apt-manage">
               <button type="button" className="btn btn-sm btn-quiet" onClick={() => { setDraft(apt.label); setMode('rename'); }}>✏️ 이름 바꾸기</button>
               <button type="button" className="btn btn-sm btn-quiet" onClick={() => setMode('remove')}>✕ 탭에서 빼기</button>
@@ -125,7 +130,7 @@ export default function AptCard({ pos }) {
           </Body>
         </>
       )}
-      <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고) · 단지 목록은 이 기기에만 저장돼요</p>
+      <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고) · {user ? '단지 목록은 계정에 저장돼요' : '로그인하면 원하는 단지를 추가할 수 있어요'}</p>
       {adding && (
         <Suspense fallback={null}>
           <AptPicker pos={pos} existing={apts} onAdd={add} onClose={() => setAdding(false)} />
