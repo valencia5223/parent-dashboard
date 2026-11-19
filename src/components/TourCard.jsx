@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useFetch } from '../api.js';
 import { markDirty } from '../account.js';
-import { fetchFestivals, fetchSpotDetail, fetchSpots, sidoOf, SIDOS } from '../tour.js';
+import { fetchFestivals, fetchSpotDetail, fetchSpots, fetchSpotsArea, sidoOf, SIDOS } from '../tour.js';
+import { loadRegions } from '../api.js';
 import Card, { Body } from './Card.jsx';
 
 // 나들이: 근처 축제·행사 / 가볼 곳(관광지·문화시설·체험) / 가보고 싶은 곳(계정 저장). 자료: 한국관광공사
@@ -171,18 +172,61 @@ function Festivals({ pos, ...rest }) {
   );
 }
 
+const AREA_KEY = 'pd_tour_area'; // { sido: '경기도' | '', sgg: '41410' | '' } — sido 가 비면 내 근처 10km
+const readArea = () => { try { const v = JSON.parse(localStorage.getItem(AREA_KEY)); return v && typeof v === 'object' ? v : { sido: '', sgg: '' }; } catch { return { sido: '', sgg: '' }; } };
+
+// 가볼 곳: 내 근처 10km 또는 시·도(+ 시·군·구)를 골라서
 function Spots({ pos, ...rest }) {
   const [kind, setKind] = useState('12');
-  const state = useFetch(() => fetchSpots(pos, kind, 10000), [pos.lat, pos.lng, kind]);
+  const [area, setArea] = useState(readArea);
+  const [regions, setRegions] = useState(null);
+  useEffect(() => { let alive = true; loadRegions().then((r) => alive && setRegions(r)).catch(() => {}); return () => { alive = false; }; }, []);
+  const pickArea = (next) => { setArea(next); try { localStorage.setItem(AREA_KEY, JSON.stringify(next)); } catch { /* 괜찮음 */ } };
+
+  const sidos = regions ? [...new Set(regions.sgg.map((r) => r.sido))] : [];
+  const sggs = regions && area.sido ? regions.sgg.filter((r) => r.sido === area.sido) : [];
+  // 시·도만 골랐으면 시·도 코드(앞 2자리), 시·군·구까지 골랐으면 그 코드
+  const lawd = area.sido ? (area.sgg || sggs[0]?.code?.slice(0, 2) || '') : '';
+  const near = !area.sido;
+  const state = useFetch(
+    () => (near ? fetchSpots(pos, kind, 10000) : fetchSpotsArea(pos, kind, lawd, area.sido)),
+    [pos.lat, pos.lng, kind, near, lawd],
+    { enabled: near || !!lawd },
+  );
+  const where = near ? '내 근처 10km' : `${area.sido}${area.sgg ? ` ${sggs.find((s) => s.code === area.sgg)?.name || ''}` : ''}`;
+  // 시·도를 처음 고를 때는 지금 위치의 시·군·구를 골라 둔다(그 시·도 안에 있으면)
+  const onSido = (sido) => {
+    if (!sido) { pickArea({ sido: '', sgg: '' }); return; }
+    const mine = regions?.nearest(pos);
+    pickArea({ sido, sgg: mine && mine.sido === sido ? mine.code : '' });
+  };
+
   return (
     <>
+      <div className="tour-area">
+        <select value={area.sido} onChange={(e) => onSido(e.target.value)} aria-label="지역 고르기">
+          <option value="">📍 내 근처 10km</option>
+          {sidos.map((s) => <option key={s} value={s}>{s}</option>)}
+        </select>
+        {area.sido && (
+          <select value={area.sgg} onChange={(e) => pickArea({ ...area, sgg: e.target.value })} aria-label="시·군·구 고르기">
+            <option value="">{area.sido} 전체</option>
+            {sggs.map((s) => <option key={s.code} value={s.code}>{s.name}</option>)}
+          </select>
+        )}
+      </div>
       <div className="chips" role="tablist" aria-label="종류 고르기">
         {KINDS.map((k) => (
           <button key={k.id} type="button" role="tab" aria-selected={kind === k.id} className={`chip chip-sm${kind === k.id ? ' chip-on' : ''}`} onClick={() => setKind(k.id)}>{k.label}</button>
         ))}
       </div>
       <Body state={state} lines={4}>
-        {(list) => <SpotList key={kind} list={list} empty="10km 안에서 찾지 못했어요" {...rest} />}
+        {(list) => (
+          <>
+            {!near && <p className="med-sub">{where} · {list.length}곳 (가까운 순)</p>}
+            <SpotList key={`${kind}${lawd}`} list={list} empty={`${where}에서 찾지 못했어요`} {...rest} />
+          </>
+        )}
       </Body>
     </>
   );

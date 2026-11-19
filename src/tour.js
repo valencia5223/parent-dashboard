@@ -50,6 +50,29 @@ const spotOf = (o) => ({
   end: o.eventenddate ? String(o.eventenddate) : '',
 });
 
+// 지역으로 찾기(areaBasedList2): 법정동 시·도 코드(lDongRegnCd, regions.json 코드 앞 2자리)·시·군·구(lDongSignguCd, 뒤 3자리).
+// 사진 있는 곳을 최근 고친 순으로 100곳 받아 지금 위치에서 가까운 순으로 보여 준다.
+// 구가 있는 시(수원시 장안구 41111 등)는 구 코드로 0곳이면 시 코드(41110)로 다시 묻는다.
+const SIDO_WORD = (name) => String(name || '').slice(0, 2);
+async function areaList(type, lawd, sidoName) {
+  const p = { numOfRows: '100', pageNo: '1', arrange: 'Q', contentTypeId: type, lDongRegnCd: lawd.slice(0, 2) };
+  if (lawd.length === 5) p.lDongSignguCd = lawd.slice(2);
+  let list = (await tour('areaBasedList2', p)).map(spotOf).filter((s) => s.id && s.title);
+  if (list.length === 0 && lawd.length === 5 && !lawd.endsWith('0')) {
+    list = (await tour('areaBasedList2', { ...p, lDongSignguCd: `${lawd.slice(2, 4)}0` })).map(spotOf).filter((s) => s.id && s.title);
+  }
+  // 지역 조건이 안 먹어 전국이 오는 경우를 막는다(주소가 그 시·도로 시작하는 것만, 하나도 없으면 그대로)
+  const w = SIDO_WORD(sidoName);
+  const inSido = list.filter((s) => s.addr.startsWith(w));
+  return inSido.length ? inSido : list;
+}
+export function fetchSpotsArea(pos, type, lawd, sidoName) {
+  return cached(`tour:area:${type}:${lawd}`, 24 * 3600e3, () => areaList(type, lawd, sidoName), { persist: true })
+    .then((list) => list
+      .map((s) => ({ ...s, distance: s.lat && s.lng ? distKm(pos, s) : null }))
+      .sort((a, b) => (a.distance ?? 1e9) - (b.distance ?? 1e9)));
+}
+
 // 가까운 곳(반경 radius m, 거리순 최대 40곳). 위치를 0.01도(약 1km)로 묶어 하루 보관
 export function fetchSpots(pos, type, radius = 10000) {
   const la = pos.lat.toFixed(2);
