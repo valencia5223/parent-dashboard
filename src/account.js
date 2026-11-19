@@ -6,9 +6,9 @@
 import { useSyncExternalStore } from 'react';
 import { SUPABASE_ANON_KEY, SUPABASE_URL } from './supabaseConfig.js';
 
-// 계정에 저장하는 것: 생활 달력·내 단지 목록·버스 즐겨찾기 정류장·지하철 즐겨찾기 역·최근 고른 위치·주유소 기름 종류와 반경
+// 계정에 저장하는 것: 생활 달력·내 단지 목록·버스 즐겨찾기 정류장·지하철 즐겨찾기 역·날씨 도시·최근 고른 위치·주유소 기름 종류와 반경
 const SYNC_KEYS = {
-  life: 'pd_life_v1', apts: 'pd_apts', busFavs: 'pd_bus_favs', subwayFavs: 'pd_subway_favs', recentPlaces: 'pd_recent_places', fuel: 'pd_fuel', radius: 'pd_radius',
+  life: 'pd_life_v1', apts: 'pd_apts', busFavs: 'pd_bus_favs', subwayFavs: 'pd_subway_favs', weatherCities: 'pd_wx_cities', recentPlaces: 'pd_recent_places', fuel: 'pd_fuel', radius: 'pd_radius',
 };
 const RAW = new Set(['fuel', 'radius']); // JSON 이 아니라 글자 그대로 저장하는 것
 const AUTH_KEY = 'pd_auth';
@@ -124,6 +124,7 @@ function merge(remote, local) {
   out.apts = union(remote?.apts, local.apts, (a, b) => a.id === b.id);
   out.busFavs = union(remote?.busFavs, local.busFavs, (a, b) => JSON.stringify(a) === JSON.stringify(b));
   out.subwayFavs = union(remote?.subwayFavs, local.subwayFavs, (a, b) => a.name === b.name);
+  out.weatherCities = union(remote?.weatherCities, local.weatherCities, (a, b) => a.id === b.id);
   out.recentPlaces = union(remote?.recentPlaces, local.recentPlaces, (a, b) => a.lat === b.lat && a.lng === b.lng);
   for (const k of ['fuel', 'radius']) out[k] = remote?.[k] ?? local[k] ?? null;
   return out;

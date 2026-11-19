@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { fetchAir, fetchWeather, useFetch } from '../api.js';
+import { useEffect, useState } from 'react';
+import { fetchAir, fetchWeather, searchPlaces, timeText, useFetch } from '../api.js';
+import { markDirty } from '../account.js';
 import Card, { Body } from './Card.jsx';
 import { AirMini, airTips } from './AirSection.jsx';
 
@@ -73,13 +74,15 @@ function Week({ d }) {
   );
 }
 
-export default function WeatherCard({ pos }) {
+// 한 곳의 날씨·미세먼지
+function WeatherView({ pos, refresh }) {
   const state = useFetch(() => fetchWeather(pos), [pos.lat, pos.lng], { interval: 15 * 60e3 });
   // 미세먼지는 따로 받아 한쪽이 실패해도 다른 쪽은 보이게 한다
   const airState = useFetch(() => fetchAir(pos), [pos.lat, pos.lng], { interval: 30 * 60e3 });
-  const reloadAll = () => { state.reload(); airState.reload(); };
+  // 카드의 새로고침 버튼
+  useEffect(() => { if (refresh) { state.reload(); airState.reload(); } }, [refresh]); // eslint-disable-line react-hooks/exhaustive-deps
   return (
-    <Card title="날씨·미세먼지" icon="🌡️" state={state} onRefresh={reloadAll}>
+    <>
       <Body state={state} lines={4}>
         {(w) => {
           const cur = w.current;
@@ -126,6 +129,108 @@ export default function WeatherCard({ pos }) {
           );
         }}
       </Body>
+      {state.at && <p className="card-foot">{timeText(state.at)} 기준</p>}
+    </>
+  );
+}
+
+// 지금 위치 + 내가 고른 도시(계정에 저장, pd_wx_cities)를 탭으로. 고른 탭은 이 기기에 기억(pd_wx_tab).
+const CITY_KEY = 'pd_wx_cities';
+const loadCities = () => { try { const v = JSON.parse(localStorage.getItem(CITY_KEY)); return Array.isArray(v) ? v.filter((c) => c?.id && c.lat != null) : []; } catch { return []; } };
+const saveCities = (v) => { try { localStorage.setItem(CITY_KEY, JSON.stringify(v)); } catch { /* 괜찮음 */ } markDirty(); };
+const savedTab = () => { try { return localStorage.getItem('pd_wx_tab') || 'here'; } catch { return 'here'; } };
+
+export default function WeatherCard({ pos }) {
+  const [cities, setCities] = useState(loadCities);
+  const [tab, setTab] = useState(savedTab);
+  const [adding, setAdding] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [refresh, setRefresh] = useState(0);
+  useEffect(() => {
+    const re = () => setCities(loadCities());
+    window.addEventListener('pd-data', re);
+    return () => window.removeEventListener('pd-data', re);
+  }, []);
+  const city = cities.find((c) => c.id === tab);
+  const pick = (id) => { setTab(id); setRemoving(false); try { localStorage.setItem('pd_wx_tab', id); } catch { /* 괜찮음 */ } };
+  const update = (list) => { setCities(list); saveCities(list); };
+  const add = (p) => {
+    const id = `c${p.lat},${p.lng}`;
+    if (!cities.some((c) => c.id === id)) update([...cities, { id, name: p.name, lat: p.lat, lng: p.lng }]);
+    pick(id);
+    setAdding(false);
+  };
+  const remove = () => { update(cities.filter((c) => c.id !== city.id)); pick('here'); };
+
+  return (
+    <Card title="날씨·미세먼지" icon="🌡️" onRefresh={() => setRefresh((n) => n + 1)}>
+      <div className="chips chips-scroll" role="tablist" aria-label="날씨 볼 곳">
+        <button type="button" role="tab" aria-selected={!city} className={`chip${!city ? ' chip-on' : ''}`} onClick={() => pick('here')}>📍 지금 위치</button>
+        {cities.map((c) => (
+          <button key={c.id} type="button" role="tab" aria-selected={city?.id === c.id} className={`chip${city?.id === c.id ? ' chip-on' : ''}`} onClick={() => pick(c.id)}>{c.name}</button>
+        ))}
+        <button type="button" className="chip chip-add" onClick={() => setAdding(true)}>＋ 도시 추가</button>
+      </div>
+      {city && (removing ? (
+        <div className="apt-manage apt-manage-warn">
+          <span>‘{city.name}’ 탭을 뺄까요?</span>
+          <button type="button" className="btn btn-sm btn-danger" onClick={remove}>빼기</button>
+          <button type="button" className="btn btn-sm" onClick={() => setRemoving(false)}>취소</button>
+        </div>
+      ) : (
+        <div className="apt-manage">
+          <button type="button" className="btn btn-sm btn-quiet" onClick={() => setRemoving(true)}>✕ 탭에서 빼기</button>
+        </div>
+      ))}
+      <WeatherView key={city ? city.id : 'here'} pos={city || pos} refresh={refresh} />
+      {adding && <CityPicker onPick={add} onClose={() => setAdding(false)} />}
     </Card>
+  );
+}
+
+// 도시 추가 창: 이름으로 찾아 고른다(OpenStreetMap 검색, 글자마다 찾지 않고 '찾기'를 눌렀을 때만)
+function CityPicker({ onPick, onClose }) {
+  const [q, setQ] = useState('');
+  const [st, setSt] = useState({ loading: false, results: null, error: '' });
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onClose]);
+  const search = async (e) => {
+    e.preventDefault();
+    const text = q.trim();
+    if (!text) return;
+    setSt({ loading: true, results: null, error: '' });
+    try { setSt({ loading: false, results: await searchPlaces(text), error: '' }); } catch (err) { setSt({ loading: false, results: null, error: err.message || '찾지 못했어요' }); }
+  };
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" role="dialog" aria-modal="true" aria-label="도시 추가" onClick={(e) => e.stopPropagation()}>
+        <header className="modal-head">
+          <h2>날씨 볼 도시 추가</h2>
+          <button type="button" className="btn-icon" onClick={onClose} aria-label="닫기">✕</button>
+        </header>
+        <form className="place-search" onSubmit={search}>
+          <input type="search" value={q} onChange={(e) => setQ(e.target.value)} placeholder="예: 부산, 제주시, 강릉, 대전 유성구" aria-label="도시 이름" enterKeyHint="search" autoFocus />
+          <button type="submit" className="btn btn-primary" disabled={st.loading}>찾기</button>
+        </form>
+        {st.loading && <p className="empty">찾는 중…</p>}
+        {st.error && <p className="stale-note">{st.error}</p>}
+        {st.results && (st.results.length === 0 ? <p className="empty">찾지 못했어요. 시·군·구 이름으로 찾아 보세요.</p> : (
+          <ul className="place-list">
+            {st.results.map((p) => (
+              <li key={`${p.lat},${p.lng}`}>
+                <button type="button" className="place-item" onClick={() => onPick(p)}>
+                  <strong>{p.name}</strong>
+                  <small>{p.detail}</small>
+                </button>
+              </li>
+            ))}
+          </ul>
+        ))}
+        <p className="card-foot">장소 검색: OpenStreetMap · 추가한 도시는 계정에 저장돼요</p>
+      </div>
+    </div>
   );
 }
