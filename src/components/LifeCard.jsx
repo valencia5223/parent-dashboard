@@ -99,7 +99,7 @@ export default function LifeCard() {
           </div>
         )}
       </section>
-      <p className="card-foot">내 날짜는 이 기기에만 저장돼요 · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
+      <p className="card-foot">내 일정은 이 기기에만 저장돼요 · 공휴일은 한국천문연구원 자료(없으면 앱에 넣어 둔 표)</p>
       {form && <EventForm ev={form} onSave={saveEvent} onRemove={removeEvent} onClose={() => setForm(null)} />}
     </Card>
   );
@@ -171,7 +171,7 @@ function MonthView({ today, holidays, events, lunarReady, trashOn, onAdd, onEdit
             {ev.lunar && <span className="ev-tag">음력</span>}
           </button>
         ))}
-        <button type="button" className="btn btn-sm btn-add-day" onClick={() => onAdd(picked)}>＋ {parts(picked)[1]}월 {parts(picked)[2]}일에 날짜 추가</button>
+        <button type="button" className="btn btn-sm btn-add-day" onClick={() => onAdd(picked)}>＋ {parts(picked)[1]}월 {parts(picked)[2]}일에 일정 추가</button>
       </div>
     </section>
   );
@@ -194,7 +194,7 @@ function Upcoming({ today, events, lunarReady, onEdit, onAdd }) {
   return (
     <section>
       <div className="life-sec-head">
-        <h3 className="section-title">내 날짜</h3>
+        <h3 className="section-title">내 일정</h3>
         <button type="button" className="btn btn-sm btn-primary" onClick={onAdd}>＋ 추가</button>
       </div>
       {events.length === 0 ? (
@@ -253,9 +253,9 @@ function EventForm({ ev, onSave, onRemove, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <form className="modal life-form" role="dialog" aria-modal="true" aria-label={ev.id ? '날짜 고치기' : '날짜 추가'} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
+      <form className="modal life-form" role="dialog" aria-modal="true" aria-label={ev.id ? '일정 고치기' : '일정 추가'} onClick={(e) => e.stopPropagation()} onSubmit={submit}>
         <header className="modal-head">
-          <h2>{ev.id ? '날짜 고치기' : '날짜 추가'}</h2>
+          <h2>{ev.id ? '일정 고치기' : '일정 추가'}</h2>
           <button type="button" className="btn-icon" onClick={onClose} aria-label="닫기">✕</button>
         </header>
         <div className="chips">
