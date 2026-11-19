@@ -77,16 +77,48 @@ function allFestivals() {
     return out;
   });
 }
-export function fetchFestivals(pos, within = 30) {
+// 시·도: 축제 주소(addr1)의 앞부분으로 거른다('경기도 …', '강원특별자치도 …', '전북특별자치도 …' 등)
+export const SIDOS = [
+  { id: 'all', label: '전국', re: null },
+  { id: '서울', label: '서울', re: /^서울/ },
+  { id: '경기', label: '경기', re: /^경기/ },
+  { id: '인천', label: '인천', re: /^인천/ },
+  { id: '강원', label: '강원', re: /^강원/ },
+  { id: '충북', label: '충북', re: /^(충청북|충북)/ },
+  { id: '충남', label: '충남', re: /^(충청남|충남)/ },
+  { id: '대전', label: '대전', re: /^대전/ },
+  { id: '세종', label: '세종', re: /^세종/ },
+  { id: '전북', label: '전북', re: /^(전라북|전북)/ },
+  { id: '전남', label: '전남', re: /^(전라남|전남)/ },
+  { id: '광주', label: '광주', re: /^광주광역/ },
+  { id: '경북', label: '경북', re: /^(경상북|경북)/ },
+  { id: '경남', label: '경남', re: /^(경상남|경남)/ },
+  { id: '대구', label: '대구', re: /^대구/ },
+  { id: '울산', label: '울산', re: /^울산/ },
+  { id: '부산', label: '부산', re: /^부산/ },
+  { id: '제주', label: '제주', re: /^제주/ },
+];
+// 지금 위치의 시·도(regions.json 의 가장 가까운 행정동)
+export async function sidoOf(pos) {
+  const d = (await import('./regions.json')).default;
+  let best = null;
+  let bd = Infinity;
+  for (const [lat, lng, i] of d.pts) {
+    const dd = (lat - pos.lat) ** 2 + ((lng - pos.lng) * 0.8) ** 2;
+    if (dd < bd) { bd = dd; best = d.sgg[i][1]; }
+  }
+  return SIDOS.find((s) => s.re && s.re.test(best || ''))?.id || 'all';
+}
+
+// 고른 시·도의 축제·행사(오늘 이후 끝나는 것). 진행 중인 것 먼저(가까운 순), 다음은 곧 시작하는 순
+export function fetchFestivals(pos, sido = 'all') {
   const today = ymd(kstNow());
-  return cached(`tour:festnear:${today}:${within}:${pos.lat.toFixed(2)},${pos.lng.toFixed(2)}`, 12 * 3600e3, async () => (await allFestivals())
-    .filter((f) => f.lat && f.lng && (!f.end || f.end >= today))
-    .map((f) => ({ ...f, distance: distKm(pos, f) }))
-    .filter((f) => f.distance <= within), { persist: true })
+  const s = SIDOS.find((x) => x.id === sido) || SIDOS[0];
+  return cached(`tour:festsido:${today}:${s.id}`, 12 * 3600e3, async () => (await allFestivals())
+    .filter((f) => (!f.end || f.end >= today) && (!s.re || s.re.test(f.addr))), { persist: s.id !== 'all' })
     .then((list) => list
-      .map((f) => ({ ...f, distance: distKm(pos, f), ongoing: f.start && f.start <= today }))
-      // 진행 중인 것 먼저(가까운 순), 다음은 곧 시작하는 순
-      .sort((a, b) => (b.ongoing - a.ongoing) || (a.ongoing ? a.distance - b.distance : a.start.localeCompare(b.start) || a.distance - b.distance)));
+      .map((f) => ({ ...f, distance: f.lat && f.lng ? distKm(pos, f) : null, ongoing: !!f.start && f.start <= today }))
+      .sort((a, b) => (b.ongoing - a.ongoing) || (a.ongoing ? (a.distance ?? 1e9) - (b.distance ?? 1e9) : a.start.localeCompare(b.start) || (a.distance ?? 1e9) - (b.distance ?? 1e9))));
 }
 
 // HTML 조각을 글로 (<br> 은 줄바꿈)

@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useFetch } from '../api.js';
 import { markDirty } from '../account.js';
-import { fetchFestivals, fetchSpotDetail, fetchSpots } from '../tour.js';
+import { fetchFestivals, fetchSpotDetail, fetchSpots, sidoOf, SIDOS } from '../tour.js';
 import Card, { Body } from './Card.jsx';
 
 // 나들이: 근처 축제·행사 / 가볼 곳(관광지·문화시설·체험) / 가보고 싶은 곳(계정 저장). 자료: 한국관광공사
@@ -135,17 +135,39 @@ function SpotList({ list, savedIds, onSave, empty }) {
   );
 }
 
+const SIDO_KEY = 'pd_tour_sido';
+// 시·도를 골라 그 지역 축제·행사를 본다. 처음에는 지금 위치의 시·도, 고른 것은 이 기기에 기억
 function Festivals({ pos, ...rest }) {
-  const state = useFetch(() => fetchFestivals(pos, 30), [pos.lat, pos.lng]);
+  const [sido, setSido] = useState(() => { try { return localStorage.getItem(SIDO_KEY); } catch { return null; } });
+  useEffect(() => {
+    if (sido) return undefined;
+    let alive = true;
+    sidoOf(pos).then((s) => { if (alive) setSido(s); }).catch(() => { if (alive) setSido('all'); });
+    return () => { alive = false; };
+  }, [sido, pos]);
+  const pickSido = (id) => { setSido(id); try { localStorage.setItem(SIDO_KEY, id); } catch { /* 괜찮음 */ } };
+  const state = useFetch(() => fetchFestivals(pos, sido || 'all'), [pos.lat, pos.lng, sido], { enabled: !!sido });
+  const label = SIDOS.find((s) => s.id === sido)?.label || '';
   return (
-    <Body state={state} lines={4}>
-      {(list) => (
-        <>
-          <p className="med-sub">30km 안 축제·행사 {list.length}곳{list.some((f) => f.ongoing) && <> · <b>{list.filter((f) => f.ongoing).length}곳 진행 중</b></>}</p>
-          <SpotList list={list} empty="30km 안에 예정된 축제·행사가 없어요" {...rest} />
-        </>
+    <>
+      <label className="tour-sido">
+        <span>지역</span>
+        <select value={sido || ''} onChange={(e) => pickSido(e.target.value)} aria-label="시·도 고르기">
+          {!sido && <option value="">찾는 중…</option>}
+          {SIDOS.map((s) => <option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+      </label>
+      {sido && (
+        <Body state={state} lines={4}>
+          {(list) => (
+            <>
+              <p className="med-sub">{label} 축제·행사 {list.length}곳{list.some((f) => f.ongoing) && <> · <b>{list.filter((f) => f.ongoing).length}곳 진행 중</b></>}</p>
+              <SpotList key={sido} list={list} empty={`${label}에 예정된 축제·행사가 없어요`} {...rest} />
+            </>
+          )}
+        </Body>
       )}
-    </Body>
+    </>
   );
 }
 

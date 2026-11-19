@@ -192,6 +192,8 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .tour-thumb { display: block; width: 72px; height: 72px; object-fit: cover; border-radius: var(--radius-md); background: var(--bg-subtle); border: 1px solid var(--border-color); }
 .tour-title-btn { display: block; width: 100%; }
 .tour-soon { color: var(--primary); font-weight: 700; }
+.tour-sido { display: flex; align-items: center; gap: 10px; margin: 10px 0 4px; font-weight: 700; color: var(--text-body); }
+.tour-sido select { min-height: 40px; padding: 0 12px; border: 1.5px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); font: inherit; color: var(--text-main); }
 .tour-detail { margin: 10px 0 4px; padding: 10px 12px; border-radius: var(--radius-md); background: var(--bg-subtle); }
 .tour-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
 .tour-tag { font-size: 0.78rem; font-weight: 700; padding: 3px 9px; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-sub); }
