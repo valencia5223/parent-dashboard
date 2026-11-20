@@ -227,8 +227,8 @@ export function KaptInfo({ apt, built, canEdit, onPick }) {
     <div className="kapt">
       <button type="button" className="kapt-head" onClick={() => setOpen(!open)} aria-expanded={open}>
         <span className="kapt-title">🏢 단지 정보</span>
-        <span className="kapt-facts">{facts.join(' · ')}</span>
         <span className="kapt-more" aria-hidden>{open ? '접기 ▲' : '자세히 ▼'}</span>
+        <span className="kapt-facts">{facts.map((f) => <span key={f}>{f}</span>)}</span>
       </button>
       {open && (
         <>

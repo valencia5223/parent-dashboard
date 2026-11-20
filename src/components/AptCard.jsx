@@ -217,7 +217,15 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
 
   return (
     <>
-      <p className="apt-sub">{apt.label} · {apt.region} {apt.dong} · 최근 1년 {valid.length}건 <small className="apt-month">(이번 달 {thisMonth}건 · 지난달 {lastMonth}건, 신고가 늦게 들어와요)</small></p>
+      <div className="apt-sub">
+        <b>{apt.label}</b> <span className="apt-where">{apt.region} {apt.dong}</span>
+        <div className="apt-month">
+          <span>최근 1년 <b>{valid.length}건</b></span>
+          <span>이번 달 {thisMonth}건</span>
+          <span>지난달 {lastMonth}건</span>
+          <small>신고가 늦게 들어와요</small>
+        </div>
+      </div>
       {kapt}
       <div className="apt-summary">
         {areas.map((g) => (

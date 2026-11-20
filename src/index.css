@@ -466,7 +466,10 @@ button.ev-row:hover { border-color: var(--primary); }
 .apt-table .num { text-align: right; font-weight: 700; }
 .apt-canceled td { color: var(--text-sub); text-decoration: line-through; }
 .apt-canceled small { text-decoration: none; display: inline-block; }
-.apt-month { color: var(--text-sub); font-weight: 500; }
+.apt-where { color: var(--text-sub); font-weight: 600; }
+.apt-month { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; margin-top: 4px; color: var(--text-body); font-size: 0.9rem; font-weight: 600; }
+.apt-month span { white-space: nowrap; }
+.apt-month small { color: var(--text-sub); font-weight: 500; white-space: nowrap; }
 .apt-record { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--bad-bg); color: var(--bad); font-size: 0.75rem; font-weight: 800; vertical-align: 1px; }
 /* 시세 그래프 */
 .apt-chart { margin: 0; padding: 12px 12px 6px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); }
@@ -498,10 +501,11 @@ button.ev-row:hover { border-color: var(--primary); }
 /* 단지 정보 */
 .kapt { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-subtle); padding: 10px 12px; }
 .kapt .muted { margin: 0; color: var(--text-sub); }
-.kapt-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.kapt-head { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
 .kapt-title { font-weight: 800; color: var(--text-main); }
-.kapt-facts { flex: 1; color: var(--text-body); font-weight: 600; }
-.kapt-more { color: var(--primary); font-weight: 700; font-size: 0.85rem; }
+.kapt-more { color: var(--primary); font-weight: 700; font-size: 0.85rem; white-space: nowrap; }
+.kapt-facts { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 6px; }
+.kapt-facts span { padding: 3px 9px; border-radius: 999px; background: var(--bg-card); border: 1px solid var(--border-color); color: var(--text-body); font-size: 0.88rem; font-weight: 700; white-space: nowrap; }
 .kapt-list { margin: 10px 0 0; display: grid; gap: 6px; }
 .kapt-list div { display: grid; grid-template-columns: 6.5em 1fr; gap: 8px; }
 .kapt-list dt { color: var(--text-sub); font-weight: 600; }
