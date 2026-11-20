@@ -176,6 +176,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .lib-detail dt { color: var(--text-sub); font-weight: 700; }
 .lib-detail dd { margin: 0; overflow-wrap: anywhere; }
 .lib-sub-title { font-weight: 800; margin: 12px 0 8px; }
+.lib-refresh { margin: -2px 0 6px; font-size: 0.85rem; }
 .lib-results-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .lib-avail { margin: 8px 0 4px; padding: 8px 12px; border-radius: var(--radius-md); background: var(--bg-subtle); }
 .lib-copies { list-style: none; margin: 4px 0 0; padding: 0; font-size: 0.88rem; color: var(--text-body); }

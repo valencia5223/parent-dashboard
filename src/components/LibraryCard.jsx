@@ -1,7 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useFetch } from '../api.js';
 import { markDirty } from '../account.js';
-import { bookAvailability, closedToday, fetchLibraries, fetchPopular, GENRES, searchBooks } from '../library.js';
+import { bookAvailability, closedToday, fetchLibraries, fetchPopular, GENRES, lastPopular, searchBooks } from '../library.js';
 import Card, { Body, ErrorBox } from './Card.jsx';
 import { LibraryIcon } from './icons.jsx';
 
@@ -249,6 +249,10 @@ function Popular({ pos, ...rest }) {
   const [genre, setGenre] = useState(() => { try { return localStorage.getItem('pd_lib_genre') || 'all'; } catch { return 'all'; } });
   const pickGenre = (id) => { setGenre(id); try { localStorage.setItem('pd_lib_genre', id); } catch { /* 괜찮음 */ } };
   const state = useFetch(() => fetchPopular(pos, genre), [pos.lat, pos.lng, genre]);
+  // 새 순위를 받는 동안(날짜가 바뀌면 10초 넘게 걸림)·못 받았을 때는 지난번 목록을 먼저 보여 준다
+  const stale = useMemo(() => lastPopular(genre), [genre]);
+  const useStale = !!stale && (state.loading || (state.error && state.data == null));
+  const view = useStale ? { ...state, data: stale, error: state.loading ? null : state.error } : state;
   return (
     <>
       <p className="lib-sub-title">요즘 우리 지역에서 많이 빌린 책 (최근 30일)</p>
@@ -259,7 +263,8 @@ function Popular({ pos, ...rest }) {
           </button>
         ))}
       </div>
-      <Body state={state} lines={4}>
+      {useStale && state.loading && <p className="muted lib-refresh">새 순위를 받는 중… (지난번 목록)</p>}
+      <Body state={view} lines={4}>
         {(books) => (books.length === 0 ? <p className="empty">인기 대출 자료가 아직 없어요</p> : <BookList books={books.slice(0, 10)} pos={pos} ranked {...rest} />)}
       </Body>
     </>

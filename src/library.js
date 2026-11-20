@@ -178,6 +178,19 @@ export const GENRES = [
 ];
 // 같은 책이 권·판마다 따로 올라와서 제목(부제·권 번호 뺀)으로 하나만 남긴다
 const titleKey = (t) => String(t || '').split(/\s*[:=]/)[0].replace(/[\s()（）]/g, '').replace(/\d+$/, '');
+// 마지막으로 받은 인기 책(장르별, 날짜와 상관없이). 정보나루는 그날 처음 묻는 조건이면 10초 넘게 걸려서
+// 날짜가 바뀌어 새로 받는 동안 이걸 먼저 보여 준다(LibraryCard 의 Popular).
+const POP_LAST = 'pd_lib_pop_last';
+export function lastPopular(genre = 'all') {
+  try { return JSON.parse(localStorage.getItem(POP_LAST) || '{}')[genre]?.list || null; } catch { return null; }
+}
+function saveLastPopular(genre, region, list) {
+  try {
+    const all = JSON.parse(localStorage.getItem(POP_LAST) || '{}');
+    all[genre] = { region, list };
+    localStorage.setItem(POP_LAST, JSON.stringify(all));
+  } catch { /* 저장 못 해도 괜찮음 */ }
+}
 export async function fetchPopular(pos, genre = 'all') {
   const [region] = await sidosNear(pos);
   const g = GENRES.find((x) => x.id === genre) || GENRES[0];
@@ -185,9 +198,11 @@ export async function fetchPopular(pos, genre = 'all') {
   return cached(`lib:pop2:${region}:${g.id}:${day(1)}`, 24 * 3600e3, async () => {
     const r = await lib('loanItemSrch', { startDt: day(31), endDt: day(1), region, pageNo: '1', pageSize: '40', ...g.p });
     const seen = new Set();
-    return unwrap(r.docs, 'doc').map(bookOf)
+    const list = unwrap(r.docs, 'doc').map(bookOf)
       .filter((b) => b.isbn && b.title && !seen.has(titleKey(b.title)) && seen.add(titleKey(b.title)))
       .slice(0, 15);
+    if (list.length) saveLastPopular(g.id, region, list);
+    return list;
   }, { persist: true });
 }
 
