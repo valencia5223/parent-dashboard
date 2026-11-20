@@ -82,22 +82,47 @@ export async function pyxisLibraries(sys) {
   }));
 }
 
-// 이 책(ISBN)이 지점마다 있는지·지금 빌릴 수 있는지(10분 보관). { [code]: { has, available, state } }
+// 이 책(ISBN)이 지점마다 있는지·지금 빌릴 수 있는지(10분 보관). { [code]: { has, available, state, copies } }
+// copies: 책 한 권마다 위치 [{ room: '2층 종합자료실(일반도서)', shelf: '종합자료실 33번 서가', callNo, state, due, map }]
+//   (1/biblios/<id>/items, 지점 id 별로 묶여 옴. 실패하면 위치 없이 상태만)
 export function pyxisAvailability(sys, isbn) {
-  return cached(`pyx:isbn:${sys.id}:${isbn}`, 10 * 60e3, async () => {
+  return cached(`pyx:isbn2:${sys.id}:${isbn}`, 10 * 60e3, async () => {
     const q = new URLSearchParams({ all: `k|a|${isbn}`, max: '50' });
     const d = await getJSON(`${sys.api}/1/collections/1/search?${q}`);
     const out = {};
+    const biblios = [];
     for (const b of d?.list || []) {
       if (String(b.isbn || '').replace(/\D/g, '') !== isbn) continue;
+      biblios.push(b.id);
       for (const v of b.branchVolumes || []) {
         const code = `${sys.id}:${v.id}`;
         const ready = v.cStateCode === 'READY';
         const prev = out[code];
         // 한 지점에 여러 권이면 한 권이라도 빌릴 수 있으면 '대출 가능'
-        if (!prev || (ready && !prev.available)) out[code] = { has: true, available: ready, state: ready ? '대출 가능' : String(v.cState || '대출 불가').replace('대출중', '대출 중') };
+        if (!prev || (ready && !prev.available)) out[code] = { has: true, available: ready, state: ready ? '대출 가능' : String(v.cState || '대출 불가').replace('대출중', '대출 중'), copies: prev?.copies || [] };
       }
     }
+    await Promise.all(biblios.slice(0, 20).map(async (id) => {
+      try {
+        const items = await getJSON(`${sys.api}/1/biblios/${id}/items`);
+        for (const [bid, list] of Object.entries(items || {})) {
+          const lib = out[`${sys.id}:${bid}`];
+          if (!lib || !Array.isArray(list)) continue;
+          for (const it of list) {
+            const map = it.shelf?.attachment?.[0]?.originalImageUrl;
+            lib.copies.push({
+              room: String(it.location?.name || '').replace(/\([^()]*\)$/, '').trim(), // 끝의 '(산본)' 같은 지점 이름은 뺌
+              shelf: it.shelf?.name || '',
+              callNo: it.callNo || '',
+              state: it.circulationState?.name || it.itemState?.name || '',
+              ready: it.circulationState?.code === 'READY',
+              due: it.dueDate ? String(it.dueDate).slice(0, 10) : '',
+              map: map ? `${sys.api}${map}` : '',
+            });
+          }
+        }
+      } catch { /* 위치를 못 받아도 대출 상태는 보여 준다 */ }
+    }));
     return out;
   });
 }

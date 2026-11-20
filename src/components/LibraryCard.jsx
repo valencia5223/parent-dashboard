@@ -104,6 +104,59 @@ function Nearby({ pos, favs, setFavs }) {
   );
 }
 
+// 책이 꽂힌 곳(군포시도서관처럼 도서관 홈페이지 자료가 있는 곳만): 자료실 · 서가 · 청구기호, 서가 안내 그림
+// '종합자료실 33번 서가'·'종합자료실11'(자료실 이름과 겹침) → '33번 서가'·'11번 서가', '38' → '38번 서가'
+const shelfText = (room, shelf) => {
+  let s = shelf.trim();
+  const word = room.split(/[\s(]/).find((w) => w.length >= 3 && s.startsWith(w));
+  if (word) s = s.slice(word.length).trim();
+  return /^\d+$/.test(s) ? `${s}번 서가` : s;
+};
+const dueText = (d) => `${Number(d.slice(5, 7))}/${Number(d.slice(8))}`;
+// 같은 자리(자료실·서가·청구기호에서 'c.2' 같은 복본 번호를 뺀 것)끼리 한 줄로
+function groupCopies(copies) {
+  const out = new Map();
+  for (const c of copies) {
+    const callNo = c.callNo.replace(/\s+c\.\d+$/i, '');
+    const k = `${c.room}|${c.shelf}|${callNo}`;
+    if (!out.has(k)) out.set(k, { room: c.room, shelf: c.shelf ? shelfText(c.room, c.shelf) : '', callNo, map: c.map, list: [] });
+    out.get(k).list.push(c);
+  }
+  // 빌릴 수 있는 책이 많은 자리 먼저
+  const ready = (g) => g.list.filter((c) => c.ready).length;
+  return [...out.values()].sort((x, y) => ready(y) - ready(x) || y.list.length - x.list.length);
+}
+function BookCopies({ copies }) {
+  const [map, setMap] = useState(null);
+  const groups = groupCopies(copies);
+  return (
+    <ul className="lib-copies">
+      {groups.map((g, i) => {
+        const ready = g.list.filter((c) => c.ready).length;
+        const dues = g.list.filter((c) => !c.ready && c.due).map((c) => c.due).sort();
+        const state = g.list.length > 1
+          ? `${g.list.length}권 중 ${ready}권 빌릴 수 있음`
+          : ready ? '' : g.list[0].state.replace('대출중', '대출 중');
+        return (
+          <li key={i}>
+            📍 {[g.room, g.shelf].filter(Boolean).join(' · ')}
+            {g.callNo && <> · <b className="lib-callno">{g.callNo}</b></>}
+            {(state || (!ready && dues.length > 0)) && (
+              <span className="muted"> · {state}{!ready && dues.length > 0 && `${state ? ', ' : ''}${dueText(dues[0])} 반납 예정`}</span>
+            )}
+            {g.map && (
+              <button type="button" className="link-btn" onClick={() => setMap(map === i ? null : i)} aria-expanded={map === i}>
+                {map === i ? '서가 그림 닫기' : '서가 위치 보기'}
+              </button>
+            )}
+            {map === i && <a href={g.map} target="_blank" rel="noreferrer" title="크게 보기"><img className="lib-shelf-map" src={g.map} alt={`${g.room} ${g.shelf} 위치 안내`} loading="lazy" /></a>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 // 근처에서 이 책을 가진 도서관과 대출 가능 여부
 function Availability({ pos, isbn, favCodes }) {
   const state = useFetch(() => bookAvailability(pos, isbn, favCodes), [pos.lat, pos.lng, isbn]);
@@ -130,6 +183,7 @@ function Availability({ pos, isbn, favCodes }) {
                         {' · '}{km(l.distance)}
                         {isClosedToday(l) === true && ' · 오늘 휴관'}
                       </p>
+                      {l.copies?.length > 0 && <BookCopies copies={l.copies} />}
                     </div>
                     <div className="med-actions">
                       <a className="btn btn-sm" href={mapLink(l)} target="_blank" rel="noreferrer">길찾기</a>
