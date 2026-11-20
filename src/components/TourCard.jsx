@@ -260,9 +260,9 @@ export default function TourCard({ pos }) {
 
   return (
     <Card title="나들이" icon="🎡" onRefresh={() => setRefresh((n) => n + 1)}>
-      <div className="chips" role="tablist" aria-label="나들이 보기 고르기">
+      <div className="seg" role="tablist" aria-label="나들이 보기 고르기">
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? ' chip-on' : ''}`} onClick={() => pick(t.id)}>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => pick(t.id)}>
             {t.id === 'saved' && saved.length > 0 ? `${t.label} ${saved.length}` : t.label}
           </button>
         ))}

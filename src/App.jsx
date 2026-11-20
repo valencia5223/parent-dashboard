@@ -300,7 +300,7 @@ function Dashboard() {
           ))}
         </nav>
         {mtab === 'transit' && (
-          <nav className="sub-switch" role="tablist" aria-label="교통 고르기">
+          <nav className="sub-switch seg" role="tablist" aria-label="교통 고르기">
             {TRANSIT_SUBS.map((t) => (
               <button key={t.id} type="button" role="tab" aria-selected={sub === t.id} className={sub === t.id ? 'on' : ''} onClick={() => pickSub(t.id)}>
                 <span aria-hidden>{t.icon}</span> {t.label}
@@ -309,7 +309,7 @@ function Dashboard() {
           </nav>
         )}
         {/* 핸드폰: 더보기 카드를 보는 중이면 위에 더보기 카드끼리 바로 바꾸는 줄 */}
-        {inMore && (
+        {inMore && CARD_TABS.filter((t) => !bar.includes(t.id)).length > 1 && (
           <nav className="more-switch" aria-label="더보기 카드 고르기">
             {CARD_TABS.filter((t) => !bar.includes(t.id)).map((t) => (
               <button key={t.id} type="button" className={`chip chip-sm${mtab === t.id ? ' chip-on' : ''}`} onClick={() => pickTab(t.id)} aria-current={mtab === t.id ? 'page' : undefined}>

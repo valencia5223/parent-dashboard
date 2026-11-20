@@ -188,7 +188,7 @@ function ChartSection({ apt, source, group }) {
     };
   }, [all, group.key]);
   const controls = (
-    <div className="apt-period" role="tablist" aria-label="그래프 기간">
+    <div className="seg seg-sm" role="tablist" aria-label="그래프 기간">
       {PERIODS.map((p) => (
         <button key={p.id} type="button" role="tab" aria-selected={p.id === period.id} className={p.id === period.id ? 'on' : ''} onClick={() => pick(p.id)}>{p.label}</button>
       ))}

@@ -17,9 +17,9 @@ export default function TransitCard({ pos }) {
 
   return (
     <Card title="버스·지하철" icon="🚏" onRefresh={() => setRefresh((n) => n + 1)}>
-      <div className="chips" role="tablist" aria-label="버스·지하철 고르기">
+      <div className="seg" role="tablist" aria-label="버스·지하철 고르기">
         {TABS.map((t) => (
-          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={`chip${tab === t.id ? ' chip-on' : ''}`} onClick={() => pick(t.id)}>
+          <button key={t.id} type="button" role="tab" aria-selected={tab === t.id} className={tab === t.id ? 'on' : ''} onClick={() => pick(t.id)}>
             {t.label}
           </button>
         ))}

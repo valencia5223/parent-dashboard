@@ -194,7 +194,7 @@ export default function BusSection({ pos }) {
                   type="search"
                   value={q}
                   onChange={(e) => typed(e.target.value)}
-                  placeholder="버스 번호·정류장 번호·이름 (예: 15-2, 26046, 시청)"
+                  placeholder="버스 번호·정류장 (예: 15-2, 시청)"
                   aria-label="정류장 찾기"
                   enterKeyHint="search"
                 />
