@@ -38,15 +38,22 @@ export function oddTrades(trades) {
   return out;
 }
 
-// n일 전 대비 변화: 이 평형의 마지막 거래일부터 거슬러 3개월 중간값 ↔ n일 전 같은 3개월 중간값.
-// trades 는 최신순, 직거래·시세와 차이 큰 거래를 뺀 것. 어느 쪽이든 거래가 없으면 null.
+// n일 전 대비 변화: 이 평형의 마지막 거래일부터 거슬러 2개월 중간값 ↔ n일 전 같은 2개월 중간값.
+// 3개월로 묶으면 빠르게 오른 단지에서 석 달 전 싼 거래가 섞여 오름폭이 작게 잡혀서 2개월로 한다.
+// 어느 쪽이든 2개월 안 거래가 3건 미만이면 3개월로 넓힌다(몇 건 때문에 튀지 않게).
+// trades 는 최신순, 직거래·시세와 차이 큰 거래를 뺀 것. 넓혀도 거래가 없으면 null.
 // 평형 칸의 '1년 전보다'(365)와 그래프의 '2년 전보다'(730)가 같은 방식이다.
 const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
+function windowAmounts(trades, last, from) {
+  const pick = (len) => trades.filter((t) => t.date <= daysBefore(last, from) && t.date > daysBefore(last, from + len)).map((t) => t.amount);
+  const two = pick(60);
+  return two.length >= 3 ? two : pick(90);
+}
 export function periodChange(trades, days) {
   if (!trades.length) return null;
   const last = trades[0].date;
-  const recent = trades.filter((t) => t.date > daysBefore(last, 90)).map((t) => t.amount);
-  const base = trades.filter((t) => t.date <= daysBefore(last, days) && t.date > daysBefore(last, days + 90)).map((t) => t.amount);
+  const recent = windowAmounts(trades, last, 0);
+  const base = windowAmounts(trades, last, days);
   if (!recent.length || !base.length) return null;
   const now = median(recent);
   const was = median(base);

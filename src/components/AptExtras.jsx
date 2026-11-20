@@ -70,7 +70,7 @@ export function PriceChart({ trades, others = [], from, to, title }) {
   const maxN = Math.max(...months.map((m) => m.n + m.extra.length), 1);
   const first = vals[0];
   const last = vals[vals.length - 1];
-  // 평형 칸의 '1년 전보다'와 같은 방식(최근 3개월 중간값 ↔ 2년 전 같은 3개월 중간값)
+  // 평형 칸의 '1년 전보다'와 같은 방식(최근 2개월 중간값 ↔ 2년 전 같은 2개월, 3건 미만이면 3개월, aptStats.js)
   const two = periodChange(trades, 730);
   const pct = two ? Math.round(two.pct * 10) / 10 : 0;
 
@@ -93,7 +93,7 @@ export function PriceChart({ trades, others = [], from, to, title }) {
         {two ? (
           <span
             className={`apt-chart-pct ${pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : ''}`}
-            title={`2년 전 같은 3개월 중간값 ${priceText(two.base)} (${two.n}건)과 최근 3개월 중간값 ${priceText(two.now)} (${two.nNow}건) 비교`}
+            title={`2년 전 같은 때 중간값 ${priceText(two.base)} (${two.n}건)과 최근 2개월 중간값 ${priceText(two.now)} (${two.nNow}건) 비교`}
           >
             2년 전보다 {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
           </span>

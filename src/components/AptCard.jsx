@@ -26,7 +26,7 @@ function Change({ c }) {
   const cls = p > 0 ? 'up' : p < 0 ? 'down' : 'flat';
   const sign = p > 0 ? '▲' : p < 0 ? '▼' : '';
   return (
-    <small className={`apt-change apt-change-${cls}`} title={`1년 전 같은 3개월 중간값 ${price(c.base)} (${c.n}건)과 최근 3개월 중간값 ${price(c.now)} 비교`}>
+    <small className={`apt-change apt-change-${cls}`} title={`1년 전 같은 때 중간값 ${price(c.base)} (${c.n}건)과 최근 2개월 중간값 ${price(c.now)} (${c.nNow}건) 비교, 거래가 3건 미만이면 3개월로`}>
       1년 전보다 <b>{sign} {Math.abs(p).toFixed(1)}%</b>
     </small>
   );
