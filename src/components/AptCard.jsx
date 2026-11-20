@@ -90,7 +90,7 @@ export default function AptCard({ pos }) {
   };
 
   return (
-    <Card title="아파트 실거래가" icon="🏠" state={apt ? state : null} onRefresh={apt ? state.reload : undefined}>
+    <Card title="부동산 · 아파트 실거래가" icon="🏠" state={apt ? state : null} onRefresh={apt ? state.reload : undefined}>
       <div className="chips" role="tablist" aria-label="단지 고르기">
         {apts.map((a) => (
           <button key={a.id} type="button" role="tab" aria-selected={apt?.id === a.id} className={`chip${apt?.id === a.id ? ' chip-on' : ''}`} onClick={() => pick(a.id)}>

@@ -126,7 +126,7 @@ const CARD_TABS = [
   // 교통 탭 = 버스·지하철 카드 + 주유 카드(핸드폰 아래 바에는 짧게 '교통')
   { id: 'transit', label: '교통·주유', short: '교통', icon: '🚏' },
   { id: 'library', label: '도서관', icon: <LibraryIcon /> },
-  { id: 'apt', label: '집값', icon: '🏠' },
+  { id: 'apt', label: '부동산', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
   { id: 'life', label: '달력', icon: '📅' },
   { id: 'tour', label: '나들이', icon: '🎡' },
