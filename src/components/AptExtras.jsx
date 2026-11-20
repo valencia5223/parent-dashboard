@@ -1,8 +1,10 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFetch } from '../api.js';
 import { kaptInfo, kaptList, matchKapt } from '../sources.js';
+import { median } from '../aptStats.js';
 
-// ---------- 시세 흐름 그래프: 평형 하나의 월별 평균 거래가(선) + 아래에 월별 거래 건수(막대, 따로 그린 작은 그래프) ----------
+// ---------- 시세 흐름 그래프: 평형 하나의 월별 중앙 거래가(선) + 아래에 월별 거래 건수(막대, 따로 그린 작은 그래프) ----------
+// trades 는 직거래·시세와 차이 큰 거래를 뺀 것(aptStats.js). 한 달에 1건이면 속 빈 점(참고용).
 const short = (man) => {
   if (man == null) return '-';
   if (man >= 10000) return `${(man / 10000).toFixed(man >= 100000 ? 0 : 1).replace(/\.0$/, '')}억`;
@@ -39,8 +41,7 @@ export function PriceChart({ trades, from, to, title }) {
     const ms = monthsBetween(from, to);
     return ms.map((ym) => {
       const list = trades.filter((t) => !t.canceled && t.amount && t.date.slice(0, 7).replace('-', '') === ym);
-      const sum = list.reduce((s, t) => s + t.amount, 0);
-      return { ym, n: list.length, avg: list.length ? Math.round(sum / list.length) : null, max: list.length ? Math.max(...list.map((t) => t.amount)) : null };
+      return { ym, n: list.length, avg: median(list.map((t) => t.amount)), max: list.length ? Math.max(...list.map((t) => t.amount)) : null };
     });
   }, [trades, from, to]);
   const vals = months.filter((m) => m.avg != null);
@@ -84,13 +85,13 @@ export function PriceChart({ trades, from, to, title }) {
   return (
     <figure className="apt-chart">
       <figcaption>
-        <b>{title}</b> 월평균 거래가 (2년)
+        <b>{title}</b> 월별 중간 거래가 (2년)
         <span className={`apt-chart-pct ${pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : ''}`}>
           {label(first.ym)} → {label(last.ym)} {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
         </span>
       </figcaption>
       <div className="apt-chart-tip" aria-live="polite">
-        {h ? <>{`20${label(h.ym)}월`} · 평균 <b>{priceText(h.avg)}</b> · {h.n}건{h.n > 1 ? ` · 최고 ${priceText(h.max)}` : ''}</>
+        {h ? <>{`20${label(h.ym)}월`} · {h.n > 1 ? '중간값' : '1건'} <b>{priceText(h.avg)}</b>{h.n > 1 ? ` · ${h.n}건 · 최고 ${priceText(h.max)}` : ' (거래 1건이라 참고만)'}</>
           : <span className="muted">그래프를 누르면 그달 평균 가격이 보여요</span>}
       </div>
       <svg
@@ -98,7 +99,7 @@ export function PriceChart({ trades, from, to, title }) {
         viewBox={`0 0 ${W} ${H}`}
         className="apt-chart-svg"
         role="img"
-        aria-label={`${title} 월평균 거래가 그래프. 처음 ${priceText(first.avg)}, 최근 ${priceText(last.avg)}`}
+        aria-label={`${title} 월별 중간 거래가 그래프. 처음 ${priceText(first.avg)}, 최근 ${priceText(last.avg)}`}
         onPointerMove={(e) => pick(e.clientX)}
         onPointerDown={(e) => pick(e.clientX)}
         onPointerLeave={(e) => { if (e.pointerType === 'mouse') setHover(null); }}
@@ -115,7 +116,7 @@ export function PriceChart({ trades, from, to, title }) {
         {h && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={PAD.t + ih} className="apt-chart-cross" />}
         {segs.map((s) => <line key={`${s.x1}`} {...s} gap={undefined} className={`apt-chart-line${s.gap ? ' gap' : ''}`} />)}
         {months.map((m, i) => m.avg != null && (
-          <circle key={m.ym} cx={x(i)} cy={y(m.avg)} r={hover === i ? 6 : 4} className="apt-chart-dot" />
+          <circle key={m.ym} cx={x(i)} cy={y(m.avg)} r={hover === i ? 6 : 4} className={`apt-chart-dot${m.n === 1 ? ' one' : ''}`} />
         ))}
       </svg>
       <svg viewBox={`0 0 ${W} ${VH}`} className="apt-chart-vol" role="img" aria-label="월별 거래 건수">
@@ -127,6 +128,7 @@ export function PriceChart({ trades, from, to, title }) {
         })}
         <text x={W - PAD.r} y={12} textAnchor="end" className="apt-chart-axis">최다 {maxN}건</text>
       </svg>
+      <p className="apt-chart-note">직거래와 시세(앞뒤 3개월 중간값)와 차이 큰 거래는 빼고 그렸어요 · 속 빈 점은 거래가 1건뿐인 달</p>
     </figure>
   );
 }

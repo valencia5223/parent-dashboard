@@ -3,6 +3,7 @@ import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
 import { markDirty, openLogin, useAccount } from '../account.js';
 import Card, { Body } from './Card.jsx';
 import { KaptInfo, PriceChart } from './AptExtras.jsx';
+import { areaKey, median, oddTrades } from '../aptStats.js';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
 
@@ -17,20 +18,18 @@ function price(man) {
 const pyeong = (m2) => (m2 == null ? '' : `${(m2 * 0.3025).toFixed(1)}평`);
 const APT_SHOW = 4; // 처음에 보여 줄 거래 수 (나머지는 '더 보기')
 const dateText = (d) => `${Number(d.slice(2, 4))}.${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
-// 면적은 소수점이 조금씩 달라도 같은 평형으로 묶는다
-const areaKey = (m2) => Math.round(m2);
 
 // 'YYYY-MM-DD' 에서 n일 전 날짜
 const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
-const avg = (list) => list.reduce((s, t) => s + t.amount, 0) / list.length;
-// 1년 전 대비: 이 평형의 최근 거래일 기준 3개월 평균 ↔ 1년 전 같은 3개월 평균. 어느 쪽이든 거래가 없으면 null
+const mid = (list) => median(list.map((t) => t.amount));
+// 1년 전 대비: 이 평형의 최근 거래일 기준 3개월 중앙값 ↔ 1년 전 같은 3개월 중앙값(직거래·시세와 차이 큰 거래 뺀 것). 어느 쪽이든 거래가 없으면 null
 function yearChange(trades) {
   if (!trades.length) return null;
   const last = trades[0].date; // 최신순
   const recent = trades.filter((t) => t.date > daysBefore(last, 90));
   const base = trades.filter((t) => t.date <= daysBefore(last, 365) && t.date > daysBefore(last, 455));
   if (!recent.length || !base.length) return null;
-  return { pct: ((avg(recent) - avg(base)) / avg(base)) * 100, base: Math.round(avg(base)), n: base.length };
+  return { pct: ((mid(recent) - mid(base)) / mid(base)) * 100, base: mid(base), n: base.length };
 }
 function Change({ c }) {
   if (!c) return <small className="apt-change">1년 전 같은 때 거래 없음</small>;
@@ -149,20 +148,18 @@ export default function AptCard({ pos }) {
   );
 }
 
-// '2년 최고가': 이 평형의 앞선 거래(받아 둔 2년 치, 3건 이상) 중 가장 비싼 값보다 비싼 거래
-function recordSet(trades) {
-  const out = new Set();
+// '2년 최고가': 평형마다 받아 둔 2년 치 거래 중 가장 비싼 거래 딱 1건(같은 금액이면 가장 최근 것).
+// 직거래·시세와 차이 큰 거래는 빼고, 그 평형 거래가 4건 이상일 때만
+function recordSet(trades, odd) {
   const best = new Map();
   const count = new Map();
-  for (const t of [...trades].reverse()) { // 오래된 것부터
-    if (t.canceled || !t.amount) continue;
+  for (const t of trades) { // 최신순이라 같은 금액이면 먼저 나온(최근) 거래가 남는다
+    if (t.canceled || !t.amount || odd.has(t)) continue;
     const k = areaKey(t.area);
-    const n = count.get(k) || 0;
-    if (n >= 3 && t.amount > best.get(k)) out.add(t);
-    best.set(k, Math.max(best.get(k) || 0, t.amount));
-    count.set(k, n + 1);
+    count.set(k, (count.get(k) || 0) + 1);
+    if (!best.has(k) || t.amount > best.get(k).amount) best.set(k, t);
   }
-  return out;
+  return new Set([...best].filter(([k]) => count.get(k) >= 4).map(([, t]) => t));
 }
 const ymOf = (offset) => {
   const now = new Date(Date.now() + 9 * 3600e3);
@@ -177,8 +174,9 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
   const since = `${apt.from.slice(0, 4)}-${apt.from.slice(4)}-01`;
   const recentAll = useMemo(() => apt.trades.filter((t) => t.date >= since), [apt.trades, since]);
   const valid = useMemo(() => recentAll.filter((t) => !t.canceled), [recentAll]);
+  const odd = useMemo(() => oddTrades(apt.trades), [apt.trades]);
   const areas = useMemo(() => {
-    const ok = apt.trades.filter((t) => !t.canceled && t.amount);
+    const ok = apt.trades.filter((t) => !t.canceled && t.amount && !odd.has(t));
     const m = new Map();
     for (const t of valid) {
       const k = areaKey(t.area);
@@ -189,12 +187,13 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
     for (const g of m.values()) {
       const same = ok.filter((t) => areaKey(t.area) === g.key);
       g.change = yearChange(same);
-      g.high = Math.max(...valid.filter((t) => areaKey(t.area) === g.key).map((t) => t.amount || 0));
+      const highs = valid.filter((t) => areaKey(t.area) === g.key && !odd.has(t)).map((t) => t.amount || 0);
+      g.high = highs.length ? Math.max(...highs) : null;
       g.trades = same;
     }
     return [...m.values()].sort((a, b) => a.key - b.key);
-  }, [valid, apt.trades]);
-  const records = useMemo(() => recordSet(apt.trades), [apt.trades]);
+  }, [valid, apt.trades, odd]);
+  const records = useMemo(() => recordSet(apt.trades, odd), [apt.trades, odd]);
   const built = useMemo(() => apt.trades.find((t) => t.built)?.built || null, [apt.trades]);
   const thisMonth = valid.filter((t) => t.date.startsWith(ymOf(0))).length;
   const lastMonth = valid.filter((t) => t.date.startsWith(ymOf(1))).length;
@@ -232,7 +231,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
             <span className="apt-area-size">전용 {g.area}㎡ <small>({pyeong(g.area)})</small></span>
             <strong>{price(g.latest.amount)}</strong>
             <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층 · 1년 {g.count}건</small>
-            <small>1년 최고 {price(g.high)}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>}</small>
+            <small>1년 최고 {g.high ? price(g.high) : '-'}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>}</small>
             <Change c={g.change} />
           </button>
         ))}
@@ -259,7 +258,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
               <td className="num">
                 {price(t.amount)}
                 {t.canceled && <small> 취소된 거래</small>}
-                {t.kind === '직거래' && <small> 직거래</small>}
+                {odd.has(t) && <small className={`apt-odd${odd.get(t) === '직거래' ? '' : ' warn'}`}> {odd.get(t)}</small>}
                 {records.has(t) && <span className="apt-record">2년 최고가</span>}
               </td>
             </tr>
