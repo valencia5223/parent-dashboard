@@ -4,6 +4,7 @@ import { markDirty, openLogin, useAccount } from '../account.js';
 import Card, { Body } from './Card.jsx';
 import { KaptInfo, PriceChart } from './AptExtras.jsx';
 import { areaKey, oddTrades, periodChange } from '../aptStats.js';
+import { fetchAptHistory } from '../sources.js';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
 
@@ -156,6 +157,65 @@ const ymOf = (offset) => {
   return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
 };
 
+// 그래프 기간(기본 1년, 이 기기에 기억). 5년은 고를 때만 3년 치를 더 받는다(fetchAptHistory)
+const PERIODS = [
+  { id: '6m', label: '6개월', months: 6, days: 182 },
+  { id: '1y', label: '1년', months: 12, days: 365 },
+  { id: '2y', label: '2년', months: 24, days: 730 },
+  { id: '5y', label: '5년', months: 60, days: 1826 },
+];
+const PERIOD_KEY = 'pd_apt_period';
+const ymBack = (ym, n) => {
+  const d = new Date(Date.UTC(Number(ym.slice(0, 4)), Number(ym.slice(4)) - 1 - n, 1));
+  return `${d.getUTCFullYear()}${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+function ChartSection({ apt, source, group }) {
+  const [pid, setPid] = useState(() => { try { return localStorage.getItem(PERIOD_KEY) || '1y'; } catch { return '1y'; } });
+  const period = PERIODS.find((p) => p.id === pid) || PERIODS[1];
+  const pick = (id) => { setPid(id); try { localStorage.setItem(PERIOD_KEY, id); } catch { /* 괜찮음 */ } };
+  const long = period.id === '5y';
+  const hist = useFetch(() => fetchAptHistory(source), [source.lawd, source.dong, source.name], { enabled: long });
+  const all = useMemo(
+    () => (long && hist.data ? [...apt.trades, ...hist.data] : apt.trades),
+    [long, hist.data, apt.trades],
+  );
+  const { clean, others } = useMemo(() => {
+    const odd = oddTrades(all);
+    const same = all.filter((t) => !t.canceled && t.amount && areaKey(t.area) === group.key);
+    return {
+      clean: same.filter((t) => !odd.has(t)),
+      others: same.filter((t) => odd.has(t)).map((t) => ({ t, why: odd.get(t) })),
+    };
+  }, [all, group.key]);
+  const controls = (
+    <div className="apt-period" role="tablist" aria-label="그래프 기간">
+      {PERIODS.map((p) => (
+        <button key={p.id} type="button" role="tab" aria-selected={p.id === period.id} className={p.id === period.id ? 'on' : ''} onClick={() => pick(p.id)}>{p.label}</button>
+      ))}
+    </div>
+  );
+  if (long && !hist.data) {
+    return (
+      <div className="apt-chart">
+        {controls}
+        <p className="apt-chart-empty">{hist.error ? `5년 거래를 받지 못했어요 (${hist.error.message})` : '5년 거래를 받는 중… (처음 한 번은 조금 걸려요)'}</p>
+      </div>
+    );
+  }
+  return (
+    <PriceChart
+      trades={clean}
+      others={others}
+      from={ymBack(apt.to, period.months - 1)}
+      to={apt.to}
+      days={period.days}
+      periodLabel={period.label}
+      title={`전용 ${group.area}㎡`}
+      controls={controls}
+    />
+  );
+}
+
 function AptBody({ apt, source, canEdit, onPickKapt }) {
   const [area, setArea] = useState('all');
   const [more, setMore] = useState(false);
@@ -230,16 +290,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
           </button>
         ))}
       </div>
-      {chartGroup && (
-        <PriceChart
-          key={chartGroup.key}
-          trades={chartGroup.trades}
-          others={[...odd].filter(([t]) => !t.canceled && areaKey(t.area) === chartGroup.key).map(([t, why]) => ({ t, why }))}
-          from={apt.chartFrom || apt.from}
-          to={apt.to}
-          title={`전용 ${chartGroup.area}㎡`}
-        />
-      )}
+      {chartGroup && <ChartSection key={chartGroup.key} apt={apt} source={source} group={chartGroup} />}
       <table className="apt-table">
         <thead>
           <tr><th>계약일</th><th>전용면적</th><th>층</th><th className="num">거래금액</th></tr>

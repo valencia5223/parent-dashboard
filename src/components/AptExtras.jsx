@@ -35,7 +35,8 @@ const PAD = { l: 44, r: 12, t: 14, b: 22 };
 const VH = 46;
 
 // others: 선에서 뺀 같은 평형 거래 [{ t, why }] — 회색 마름모로 따로 찍고(범위 밖이면 가장자리에 ▼▲), 누르면 '직거래'라고 알려 준다
-export function PriceChart({ trades, others = [], from, to, title }) {
+// days·periodLabel: 고른 기간(그 기간 전 대비 %), controls: 기간 고르기 버튼(그래프 맨 위)
+export function PriceChart({ trades, others = [], from, to, title, days = 730, periodLabel = '2년', controls = null }) {
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
   const months = useMemo(() => {
@@ -47,7 +48,14 @@ export function PriceChart({ trades, others = [], from, to, title }) {
     });
   }, [trades, others, from, to]);
   const vals = months.filter((m) => m.avg != null);
-  if (vals.length < 2) return <p className="apt-chart-empty">{title} · 2년 동안 거래가 적어 그래프를 그리지 못했어요</p>;
+  if (vals.length < 2) {
+    return (
+      <div className="apt-chart">
+        {controls}
+        <p className="apt-chart-empty">{title} · {periodLabel} 동안 거래가 적어 그래프를 그리지 못했어요</p>
+      </div>
+    );
+  }
 
   let lo = Math.min(...vals.map((m) => m.avg));
   let hi = Math.max(...vals.map((m) => m.avg));
@@ -71,7 +79,7 @@ export function PriceChart({ trades, others = [], from, to, title }) {
   const first = vals[0];
   const last = vals[vals.length - 1];
   // 평형 칸의 '1년 전보다'와 같은 방식(최근 2개월 중간값 ↔ 2년 전 같은 2개월, 3건 미만이면 3개월, aptStats.js)
-  const two = periodChange(trades, 730);
+  const two = periodChange(trades, days);
   const pct = two ? Math.round(two.pct * 10) / 10 : 0;
 
   const pick = (clientX) => {
@@ -84,20 +92,23 @@ export function PriceChart({ trades, others = [], from, to, title }) {
     setHover(best);
   };
   const h = hover != null ? months[hover] : null;
+  // 아래 달 글자: 6개월은 매달, 1년은 3달, 2년은 6달, 5년은 1년마다(마지막 달 기준)
+  const step = months.length <= 6 ? 1 : months.length <= 12 ? 3 : months.length <= 24 ? 6 : 12;
   const label = (ym) => `${ym.slice(2, 4)}.${Number(ym.slice(4))}`;
 
   return (
     <figure className="apt-chart">
+      {controls}
       <figcaption>
-        <b>{title}</b> 월별 중간 거래가 (2년)
+        <b>{title}</b> 월별 중간 거래가
         {two ? (
           <span
             className={`apt-chart-pct ${pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : ''}`}
-            title={`2년 전 같은 때 중간값 ${priceText(two.base)} (${two.n}건)과 최근 2개월 중간값 ${priceText(two.now)} (${two.nNow}건) 비교`}
+            title={`${periodLabel} 전 같은 때 중간값 ${priceText(two.base)} (${two.n}건)과 최근 2개월 중간값 ${priceText(two.now)} (${two.nNow}건) 비교`}
           >
-            2년 전보다 {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
+            {periodLabel} 전보다 {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
           </span>
-        ) : <span className="apt-chart-pct">2년 전 같은 때 거래 없음</span>}
+        ) : <span className="apt-chart-pct">{periodLabel} 전 같은 때 거래 없음</span>}
       </figcaption>
       <div className="apt-chart-tip" aria-live="polite">
         {h ? (
@@ -126,7 +137,7 @@ export function PriceChart({ trades, others = [], from, to, title }) {
             <text x={PAD.l - 6} y={y(v) + 4} textAnchor="end" className="apt-chart-axis">{short(Math.round(v))}</text>
           </g>
         ))}
-        {months.map((m, i) => ((i % 6 === 0 || i === months.length - 1) && (
+        {months.map((m, i) => (((months.length - 1 - i) % step === 0) && (
           <text key={m.ym} x={x(i)} y={H - 4} textAnchor={i === 0 ? 'start' : i === months.length - 1 ? 'end' : 'middle'} className="apt-chart-axis">{label(m.ym)}</text>
         )))}
         {h && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={PAD.t + ih} className="apt-chart-cross" />}
@@ -159,7 +170,6 @@ export function PriceChart({ trades, others = [], from, to, title }) {
         })}
         <text x={W - PAD.r} y={12} textAnchor="end" className="apt-chart-axis">최다 {maxN}건</text>
       </svg>
-      <p className="apt-chart-note">선은 중개거래의 그달 중간값 · 속 빈 점은 거래가 1건뿐인 달 · 회색 마름모(◆)는 직거래나 시세와 차이 큰 거래라 선에서 뺀 것(그래프 밖이면 ▼▲)</p>
     </figure>
   );
 }

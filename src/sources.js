@@ -471,6 +471,20 @@ const tradeOf = (r) => {
   };
 };
 
+// 한 번에 n개씩만 부른다(한 단지에 달마다 한 번씩 수십 번을 동시에 부르면 국토부 서버가 연결을 끊는다)
+async function mapLimit(items, n, fn) {
+  const out = new Array(items.length);
+  let next = 0;
+  const worker = async () => {
+    while (next < items.length) {
+      const i = next++;
+      out[i] = await fn(items[i], i);
+    }
+  };
+  await Promise.all(Array.from({ length: Math.min(n, items.length) }, worker));
+  return out;
+}
+
 // 시군구 하나의 한 달치 거래 전체. 커서 localStorage 에는 두지 않고 메모리에만(지난달 이전은 하루, 최근 두 달은 3시간)
 function rtmsMonth(key, lawd, ym, isRecent) {
   return cached(`rtms:${lawd}:${ym}`, (isRecent ? 3 : 24) * 3600e3, async () => {
@@ -497,12 +511,26 @@ export async function fetchApt(apt) {
   if (!key) throw needKey('공공데이터포털');
   const months = recentMonths(28);
   const trades = await cached(`apt6:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
-    const monthly = await Promise.all(months.map((ym, i) => rtmsMonth(key, apt.lawd, ym, i < 2)));
+    const monthly = await mapLimit(months, 6, (ym, i) => rtmsMonth(key, apt.lawd, ym, i < 2));
     return monthly.flat()
       .filter((t) => t.dong === apt.dong && t.name === apt.name)
       .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
   }, { persist: true });
   return { id: apt.id, label: apt.label, region: apt.region, dong: apt.dong, from: months[12], chartFrom: months[23], to: months[0], trades };
+}
+
+// 그래프 '5년'을 고를 때만: 28개월 전부터 63개월 전까지(5년 전 대비 계산용 3개월 포함) 더 받는다.
+// 지난 달 거래는 거의 바뀌지 않아 걸러 낸 결과를 일주일 동안 이 기기에 저장한다.
+export async function fetchAptHistory(apt) {
+  const key = dataKey();
+  if (!key) throw needKey('공공데이터포털');
+  const months = recentMonths(63).slice(28);
+  return cached(`apthist:${months[0]}:${apt.lawd}:${apt.dong}:${apt.name}`, 7 * 864e5, async () => {
+    const monthly = await mapLimit(months, 6, (ym) => rtmsMonth(key, apt.lawd, ym, false));
+    return monthly.flat()
+      .filter((t) => t.dong === apt.dong && t.name === apt.name)
+      .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
+  }, { persist: true });
 }
 
 // ---------- 단지 정보 (국토부 공동주택 단지 목록 AptListService4 · 기본/상세 정보 AptBasisInfoServiceV5) ----------
@@ -613,7 +641,7 @@ export function matchKapt(apt, built) {
 export async function fetchAptList(lawd) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
-  const monthly = await Promise.all(recentMonths(12).map((ym, i) => rtmsMonth(key, lawd, ym, i < 2)));
+  const monthly = await mapLimit(recentMonths(12), 6, (ym, i) => rtmsMonth(key, lawd, ym, i < 2));
   const map = new Map();
   for (const t of monthly.flat()) {
     if (!t.name || t.canceled) continue;
