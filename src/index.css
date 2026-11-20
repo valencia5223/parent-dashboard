@@ -475,7 +475,6 @@ button.ev-row:hover { border-color: var(--primary); }
 .apt-chart { margin: 0; padding: 12px 12px 6px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); }
 .apt-chart figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; font-size: 0.95rem; color: var(--text-body); }
 .apt-chart-pct { font-weight: 800; color: var(--text-sub); }
-.apt-chart-basis { margin: 2px 0 0; font-size: 0.85rem; color: var(--text-sub); }
 .apt-chart-pct.up { color: var(--bad); }
 .apt-chart-pct.down { color: var(--primary); }
 .apt-chart-tip { min-height: 1.5em; margin: 4px 0 2px; font-size: 0.9rem; color: var(--text-main); }

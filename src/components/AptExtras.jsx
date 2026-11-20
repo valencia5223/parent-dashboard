@@ -17,11 +17,6 @@ const priceText = (man) => {
   if (!eok) return `${rest.toLocaleString('ko-KR')}만원`;
   return rest ? `${eok}억 ${rest.toLocaleString('ko-KR')}만원` : `${eok}억원`;
 };
-// ['2025-09-16', '2025-11-14'] → '25.9.16~11.14'
-const rangeText = ([a, b]) => {
-  const p = (d) => `${Number(d.slice(5, 7))}.${Number(d.slice(8))}`;
-  return `${a.slice(2, 4)}.${p(a)}~${a.slice(0, 4) === b.slice(0, 4) ? '' : `${b.slice(2, 4)}.`}${p(b)}`;
-};
 function monthsBetween(from, to) {
   const out = [];
   let y = Number(from.slice(0, 4));
@@ -115,11 +110,6 @@ export function PriceChart({ trades, others = [], from, to, title, days = 730, p
           </span>
         ) : <span className="apt-chart-pct">{periodLabel} 전 같은 때 거래 없음</span>}
       </figcaption>
-      {two && (
-        <p className="apt-chart-basis">
-          {rangeText(two.baseRange)} 중간값 {priceText(two.base)}({two.n}건) → {rangeText(two.nowRange)} {priceText(two.now)}({two.nNow}건)
-        </p>
-      )}
       <div className="apt-chart-tip" aria-live="polite">
         {h ? (
           <>

@@ -44,26 +44,18 @@ export function oddTrades(trades) {
 // trades 는 최신순, 직거래·시세와 차이 큰 거래를 뺀 것. 넓혀도 거래가 없으면 null.
 // 평형 칸의 '1년 전보다'(365)와 그래프의 '2년 전보다'(730)가 같은 방식이다.
 const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
-// 돌려주는 구간: [start, end] (start 는 그날 포함하도록 하루 뒤로 맞춤)
 function windowAmounts(trades, last, from) {
-  const pick = (len) => ({
-    amounts: trades.filter((t) => t.date <= daysBefore(last, from) && t.date > daysBefore(last, from + len)).map((t) => t.amount),
-    start: daysBefore(last, from + len - 1),
-    end: daysBefore(last, from),
-  });
+  const pick = (len) => trades.filter((t) => t.date <= daysBefore(last, from) && t.date > daysBefore(last, from + len)).map((t) => t.amount);
   const two = pick(60);
-  return two.amounts.length >= 3 ? two : pick(90);
+  return two.length >= 3 ? two : pick(90);
 }
 export function periodChange(trades, days) {
   if (!trades.length) return null;
   const last = trades[0].date;
   const recent = windowAmounts(trades, last, 0);
   const base = windowAmounts(trades, last, days);
-  if (!recent.amounts.length || !base.amounts.length) return null;
-  const now = median(recent.amounts);
-  const was = median(base.amounts);
-  return {
-    pct: ((now - was) / was) * 100, now, base: was, n: base.amounts.length, nNow: recent.amounts.length,
-    nowRange: [recent.start, recent.end], baseRange: [base.start, base.end],
-  };
+  if (!recent.length || !base.length) return null;
+  const now = median(recent);
+  const was = median(base);
+  return { pct: ((now - was) / was) * 100, now, base: was, n: base.length, nNow: recent.length };
 }
