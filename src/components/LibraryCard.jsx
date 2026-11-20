@@ -144,6 +144,9 @@ function BookCopies({ copies }) {
             {(state || (!ready && dues.length > 0)) && (
               <span className="muted"> · {state}{!ready && dues.length > 0 && `${state ? ', ' : ''}${dueText(dues[0])} 반납 예정`}</span>
             )}
+            {g.list.some((c) => c.hold) && <span className="lib-svc" title="반납되면 내 차례로 잡아 둠(홈페이지에서 로그인 후 신청)">예약 가능</span>}
+            {g.list.some((c) => c.pre) && <span className="lib-svc" title="홈페이지에서 로그인 후 신청">선예약 가능</span>}
+            {g.list.some((c) => c.ibl) && <span className="lib-svc" title="이 책을 내가 다니는 군포 도서관으로 보내 받기(홈페이지에서 로그인 후 신청)">상호대차 가능</span>}
             {g.map && (
               <button type="button" className="link-btn" onClick={() => setMap(map === i ? null : i)} aria-expanded={map === i}>
                 {map === i ? '서가 그림 닫기' : '서가 위치 보기'}

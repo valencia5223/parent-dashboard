@@ -90,7 +90,7 @@ const inLibOnly = (s) => String(s || '').replace(/\s/g, '').includes('관내열�
 // 도서관 홈페이지의 그 책 상세 화면(로그인하면 예약·상호대차를 누를 수 있음). 홈페이지는 해시 주소 #/search/detail/<biblioId>
 const reserveUrl = (sys, biblioId) => `${sys.site.replace(/\/$/, '')}/#/search/detail/${biblioId}`;
 export function pyxisAvailability(sys, isbn) {
-  return cached(`pyx:isbn3:${sys.id}:${isbn}`, 10 * 60e3, async () => {
+  return cached(`pyx:isbn4:${sys.id}:${isbn}`, 10 * 60e3, async () => {
     const q = new URLSearchParams({ all: `k|a|${isbn}`, max: '50' });
     const d = await getJSON(`${sys.api}/1/collections/1/search?${q}`);
     const out = {};
@@ -124,6 +124,10 @@ export function pyxisAvailability(sys, isbn) {
               ready: it.circulationState?.code === 'READY',
               due: it.dueDate ? String(it.dueDate).slice(0, 10) : '',
               map: map ? `${sys.api}${map}` : '',
+              // 홈페이지에서 신청할 수 있는 것: HOLD 예약(대출 중인 책), IBL 분관 상호대차(다른 지점의 대출 가능한 책), RESERVATION 선예약
+              hold: (it.availableServices || []).includes('HOLD'),
+              ibl: (it.availableServices || []).includes('IBL'),
+              pre: (it.availableServices || []).includes('RESERVATION'),
             });
           }
         }
