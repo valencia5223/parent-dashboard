@@ -466,6 +466,40 @@ button.ev-row:hover { border-color: var(--primary); }
 .apt-table .num { text-align: right; font-weight: 700; }
 .apt-canceled td { color: var(--text-sub); text-decoration: line-through; }
 .apt-canceled small { text-decoration: none; display: inline-block; }
+.apt-month { color: var(--text-sub); font-weight: 500; }
+.apt-record { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--bad-bg); color: var(--bad); font-size: 0.75rem; font-weight: 800; vertical-align: 1px; }
+/* 시세 그래프 */
+.apt-chart { margin: 0; padding: 12px 12px 6px; border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-card); }
+.apt-chart figcaption { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; font-size: 0.95rem; color: var(--text-body); }
+.apt-chart-pct { font-weight: 800; color: var(--text-sub); }
+.apt-chart-pct.up { color: var(--bad); }
+.apt-chart-pct.down { color: var(--primary); }
+.apt-chart-tip { min-height: 1.5em; margin: 4px 0 2px; font-size: 0.9rem; color: var(--text-main); }
+.apt-chart-tip .muted { color: var(--text-sub); }
+.apt-chart-svg, .apt-chart-vol { display: block; width: 100%; height: auto; touch-action: pan-y; }
+.apt-chart-svg { cursor: crosshair; }
+.apt-chart-grid { stroke: var(--border-color); stroke-width: 1; }
+.apt-chart-axis { fill: var(--text-sub); font-size: 12px; }
+.apt-chart-line { stroke: var(--primary); stroke-width: 2.5; stroke-linecap: round; }
+.apt-chart-line.gap { stroke-dasharray: 4 5; stroke-width: 2; opacity: 0.7; }
+.apt-chart-dot { fill: var(--primary); stroke: var(--bg-card); stroke-width: 2; }
+.apt-chart-cross { stroke: var(--text-sub); stroke-width: 1; stroke-dasharray: 3 3; }
+.apt-chart-bar { fill: var(--primary); opacity: 0.35; }
+.apt-chart-bar.on { opacity: 0.9; }
+.apt-chart-empty { color: var(--text-sub); font-size: 0.9rem; }
+/* 단지 정보 */
+.kapt { border: 1px solid var(--border-color); border-radius: var(--radius-md); background: var(--bg-subtle); padding: 10px 12px; }
+.kapt .muted { margin: 0; color: var(--text-sub); }
+.kapt-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 10px; width: 100%; padding: 0; border: 0; background: none; font: inherit; color: inherit; text-align: left; cursor: pointer; }
+.kapt-title { font-weight: 800; color: var(--text-main); }
+.kapt-facts { flex: 1; color: var(--text-body); font-weight: 600; }
+.kapt-more { color: var(--primary); font-weight: 700; font-size: 0.85rem; }
+.kapt-list { margin: 10px 0 0; display: grid; gap: 6px; }
+.kapt-list div { display: grid; grid-template-columns: 6.5em 1fr; gap: 8px; }
+.kapt-list dt { color: var(--text-sub); font-weight: 600; }
+.kapt-list dd { margin: 0; color: var(--text-main); }
+.kapt-src { margin: 8px 0 0; font-size: 0.82rem; color: var(--text-sub); }
+.kapt-select { flex: 1; min-width: 0; min-height: 38px; border: 1px solid var(--border-color); border-radius: var(--radius-md); padding: 0 10px; font: inherit; background: var(--bg-card); }
 
 /* 위치 바꾸기 창 */
 .where strong { font-weight: 800; }

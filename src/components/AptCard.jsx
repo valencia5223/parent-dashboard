@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
 import { markDirty, openLogin, useAccount } from '../account.js';
 import Card, { Body } from './Card.jsx';
+import { KaptInfo, PriceChart } from './AptExtras.jsx';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
 
@@ -126,11 +127,19 @@ export default function AptCard({ pos }) {
           )}
           {/* 단지를 바꾸는 동안에는 이전 단지 표 대신 뼈대를 보여 준다 */}
           <Body state={state.data?.id === apt.id ? state : { ...state, data: null }} lines={5}>
-            {(data) => <AptBody key={data.id} apt={{ ...data, label: apt.label }} />}
+            {(data) => (
+              <AptBody
+                key={data.id}
+                apt={{ ...data, label: apt.label }}
+                source={apt}
+                canEdit={!!user}
+                onPickKapt={(code) => update(apts.map((a) => (a.id === apt.id ? { ...a, kapt: code } : a)))}
+              />
+            )}
           </Body>
         </>
       )}
-      <p className="card-foot">국토교통부 실거래가 공개 자료 · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고) · {user ? '단지 목록은 계정에 저장돼요' : '로그인하면 원하는 단지를 추가할 수 있어요'}</p>
+      <p className="card-foot">국토교통부 실거래가 공개 자료 · 단지 정보: 공동주택관리정보시스템(K-apt) · 신고 후 반영까지 시간이 걸려요(계약 후 30일 안 신고) · {user ? '단지 목록은 계정에 저장돼요' : '로그인하면 원하는 단지를 추가할 수 있어요'}</p>
       {adding && (
         <Suspense fallback={null}>
           <AptPicker pos={pos} existing={apts} onAdd={add} onClose={() => setAdding(false)} />
@@ -140,7 +149,28 @@ export default function AptCard({ pos }) {
   );
 }
 
-function AptBody({ apt }) {
+// '2년 최고가': 이 평형의 앞선 거래(받아 둔 2년 치, 3건 이상) 중 가장 비싼 값보다 비싼 거래
+function recordSet(trades) {
+  const out = new Set();
+  const best = new Map();
+  const count = new Map();
+  for (const t of [...trades].reverse()) { // 오래된 것부터
+    if (t.canceled || !t.amount) continue;
+    const k = areaKey(t.area);
+    const n = count.get(k) || 0;
+    if (n >= 3 && t.amount > best.get(k)) out.add(t);
+    best.set(k, Math.max(best.get(k) || 0, t.amount));
+    count.set(k, n + 1);
+  }
+  return out;
+}
+const ymOf = (offset) => {
+  const now = new Date(Date.now() + 9 * 3600e3);
+  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - offset, 1));
+  return `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`;
+};
+
+function AptBody({ apt, source, canEdit, onPickKapt }) {
   const [area, setArea] = useState('all');
   const [more, setMore] = useState(false);
   // 화면에 보여 주는 것은 최근 13개월, 변화율 계산에는 더 오래된 거래까지 쓴다
@@ -156,24 +186,40 @@ function AptBody({ apt }) {
       g.count += 1;
       m.set(k, g);
     }
-    for (const g of m.values()) g.change = yearChange(ok.filter((t) => areaKey(t.area) === g.key));
+    for (const g of m.values()) {
+      const same = ok.filter((t) => areaKey(t.area) === g.key);
+      g.change = yearChange(same);
+      g.high = Math.max(...valid.filter((t) => areaKey(t.area) === g.key).map((t) => t.amount || 0));
+      g.trades = same;
+    }
     return [...m.values()].sort((a, b) => a.key - b.key);
   }, [valid, apt.trades]);
+  const records = useMemo(() => recordSet(apt.trades), [apt.trades]);
+  const built = useMemo(() => apt.trades.find((t) => t.built)?.built || null, [apt.trades]);
+  const thisMonth = valid.filter((t) => t.date.startsWith(ymOf(0))).length;
+  const lastMonth = valid.filter((t) => t.date.startsWith(ymOf(1))).length;
 
+  const kapt = <KaptInfo apt={source} built={built} canEdit={canEdit} onPick={onPickKapt} />;
   if (recentAll.length === 0) {
     return (
-      <div className="empty">
-        <p>최근 1년({apt.from.slice(0, 4)}.{apt.from.slice(4)} ~ {apt.to.slice(0, 4)}.{apt.to.slice(4)}) {apt.dong} 거래가 없어요.</p>
-      </div>
+      <>
+        {kapt}
+        <div className="empty">
+          <p>최근 1년({apt.from.slice(0, 4)}.{apt.from.slice(4)} ~ {apt.to.slice(0, 4)}.{apt.to.slice(4)}) {apt.dong} 거래가 없어요.</p>
+        </div>
+      </>
     );
   }
+  // 그래프는 고른 평형, 고르지 않았으면 거래가 가장 많은 평형
+  const chartGroup = areas.find((g) => g.key === area) || [...areas].sort((a, b) => b.count - a.count)[0];
 
   const shown = recentAll.filter((t) => area === 'all' || areaKey(t.area) === area);
   const list = more ? shown : shown.slice(0, APT_SHOW);
 
   return (
     <>
-      <p className="apt-sub">{apt.label} · {apt.region} {apt.dong} · 최근 1년 {valid.length}건</p>
+      <p className="apt-sub">{apt.label} · {apt.region} {apt.dong} · 최근 1년 {valid.length}건 <small className="apt-month">(이번 달 {thisMonth}건 · 지난달 {lastMonth}건, 신고가 늦게 들어와요)</small></p>
+      {kapt}
       <div className="apt-summary">
         {areas.map((g) => (
           <button
@@ -186,10 +232,20 @@ function AptBody({ apt }) {
             <span className="apt-area-size">전용 {g.area}㎡ <small>({pyeong(g.area)})</small></span>
             <strong>{price(g.latest.amount)}</strong>
             <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층 · 1년 {g.count}건</small>
+            <small>1년 최고 {price(g.high)}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>}</small>
             <Change c={g.change} />
           </button>
         ))}
       </div>
+      {chartGroup && (
+        <PriceChart
+          key={chartGroup.key}
+          trades={chartGroup.trades}
+          from={apt.chartFrom || apt.from}
+          to={apt.to}
+          title={`전용 ${chartGroup.area}㎡`}
+        />
+      )}
       <table className="apt-table">
         <thead>
           <tr><th>계약일</th><th>전용면적</th><th>층</th><th className="num">거래금액</th></tr>
@@ -204,6 +260,7 @@ function AptBody({ apt }) {
                 {price(t.amount)}
                 {t.canceled && <small> 취소된 거래</small>}
                 {t.kind === '직거래' && <small> 직거래</small>}
+                {records.has(t) && <span className="apt-record">2년 최고가</span>}
               </td>
             </tr>
           ))}

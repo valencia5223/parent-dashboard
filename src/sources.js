@@ -429,10 +429,11 @@ export function fetchGas({ lat, lng }, fuel, radius) {
 //   삼익소월: 산본역 근처지만 법정동은 금정동
 //   가야주공1차: 산본동 '가야주공' ('가야3주공' 은 다른 단지)
 //   한라주공2차: 산본동 '한라주공4-2' ('한라주공4' 는 1차)
+// kapt = 공동주택관리정보시스템(K-apt) 단지 코드(단지 정보용, K-apt 이름은 산본소월아파트·가야1차·산본한라2차)
 export const DEFAULT_APTS = [
-  { id: 'soweol', label: '삼익소월', lawd: '41410', region: '군포시', dong: '금정동', name: '삼익소월' },
-  { id: 'gaya1', label: '가야주공1차', lawd: '41410', region: '군포시', dong: '산본동', name: '가야주공' },
-  { id: 'halla2', label: '한라주공2차', lawd: '41410', region: '군포시', dong: '산본동', name: '한라주공4-2' },
+  { id: 'soweol', label: '삼익소월', lawd: '41410', region: '군포시', dong: '금정동', name: '삼익소월', kapt: 'A43505003' },
+  { id: 'gaya1', label: '가야주공1차', lawd: '41410', region: '군포시', dong: '산본동', name: '가야주공', kapt: 'A43574905' },
+  { id: 'halla2', label: '한라주공2차', lawd: '41410', region: '군포시', dong: '산본동', name: '한라주공4-2', kapt: 'A43576005' },
 ];
 
 // 예전 캐시(세 단지만 걸러 저장하던 apt3:)는 지운다
@@ -489,19 +490,123 @@ function rtmsMonth(key, lawd, ym, isRecent) {
   });
 }
 
-// 단지 하나의 최근 16개월 거래(화면 목록은 13개월, 1년 전 대비 변화를 구하려고 3개월 더).
+// 단지 하나의 최근 25개월 거래(화면 목록은 13개월, 시세 그래프는 24개월, 1년 전 대비 변화도 여기서).
 // 걸러 낸 결과만 3시간 동안 이 기기에 저장해 다시 열 때 바로 보인다.
 export async function fetchApt(apt) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
-  const months = recentMonths(16);
-  const trades = await cached(`apt4:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
+  const months = recentMonths(25);
+  const trades = await cached(`apt5:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
     const monthly = await Promise.all(months.map((ym, i) => rtmsMonth(key, apt.lawd, ym, i < 2)));
     return monthly.flat()
       .filter((t) => t.dong === apt.dong && t.name === apt.name)
       .sort((a, b) => b.date.localeCompare(a.date) || (b.amount ?? 0) - (a.amount ?? 0));
   }, { persist: true });
-  return { id: apt.id, label: apt.label, region: apt.region, dong: apt.dong, from: months[12], to: months[0], trades };
+  return { id: apt.id, label: apt.label, region: apt.region, dong: apt.dong, from: months[12], chartFrom: months[23], to: months[0], trades };
+}
+
+// ---------- 단지 정보 (국토부 공동주택 단지 목록 AptListService4 · 기본/상세 정보 AptBasisInfoServiceV5) ----------
+// 실거래가와 같은 apis.data.go.kr/1613000 이라 /api/rtms 중계를 같이 쓴다. K-apt(의무관리 단지)에 있는 단지만 나온다.
+async function kaptGet(path, params) {
+  const key = dataKey();
+  if (!key) throw needKey('공공데이터포털');
+  const q = new URLSearchParams({ serviceKey: key, _type: 'json', ...params });
+  const text = await getText(`/api/rtms/${path}?${q}`);
+  checkGatewayError(text);
+  let j;
+  try { j = JSON.parse(text); } catch { throw new FetchError('단지 정보를 읽지 못했어요'); }
+  const err = j?.OpenAPI_ServiceResponse?.cmmMsgHeader;
+  if (err) throw new FetchError(err.returnAuthMsg || err.errMsg || '단지 정보 오류');
+  const code = j?.response?.header?.resultCode;
+  if (code && !['00', '000', '0'].includes(code)) throw new FetchError(j.response.header.resultMsg || `단지 정보 오류 (${code})`);
+  return j?.response?.body || {};
+}
+const asList = (v) => (Array.isArray(v) ? v : v?.item ? toArr(v.item) : v ? [v] : []);
+
+// 시·군·구의 K-apt 단지 목록(한 달 보관) [{ code, name, dong }]
+export function kaptList(lawd) {
+  return cached(`kapt:list:${lawd}`, 30 * 864e5, async () => {
+    const out = [];
+    for (let page = 1; page <= 5; page++) {
+      const b = await kaptGet('AptListService4/getSigunguAptList4', { sigunguCode: lawd, numOfRows: '1000', pageNo: String(page) });
+      const items = asList(b.items);
+      out.push(...items.map((x) => ({ code: x.kaptCode, name: String(x.kaptName || '').trim(), dong: String(x.as3 || x.as4 || '').trim() })));
+      if (out.length >= Number(b.totalCount || 0) || items.length === 0) break;
+    }
+    return out.filter((x) => x.code && x.name);
+  }, { persist: true });
+}
+
+// 단지 기본 + 상세 정보(일주일 보관)
+export function kaptInfo(code) {
+  return cached(`kapt:info:${code}`, 7 * 864e5, async () => {
+    const [b, d] = await Promise.all([
+      kaptGet('AptBasisInfoServiceV5/getAphusBassInfoV5', { kaptCode: code }),
+      kaptGet('AptBasisInfoServiceV5/getAphusDtlInfoV5', { kaptCode: code }).catch(() => ({})),
+    ]);
+    const x = b.item || {};
+    const y = d.item || {};
+    const n = (v) => { const k = Number(String(v ?? '').replace(/,/g, '')); return Number.isFinite(k) && k > 0 ? k : null; };
+    const t = (v) => { const k = String(v ?? '').trim(); return k && k !== 'null' ? k : ''; };
+    const used = t(x.kaptUsedate);
+    return {
+      code, name: t(x.kaptName), addr: t(x.doroJuso) || t(x.kaptAddr),
+      used: used.length >= 6 ? `${used.slice(0, 4)}-${used.slice(4, 6)}` : '',
+      households: n(x.kaptdaCnt) || n(x.hoCnt), dongs: n(x.kaptDongCnt), topFloor: n(x.kaptTopFloor),
+      heat: t(x.codeHeatNm), hall: t(x.codeHallNm), builder: t(x.kaptBcompany),
+      mgr: t(x.codeMgrNm), tel: t(x.kaptTel),
+      parkUp: n(y.kaptdPcnt), parkDown: n(y.kaptdPcntu), elev: n(y.kaptdEcnt) || n(x.kaptdEcntp), cctv: n(y.kaptdCccnt),
+      evCharger: (n(y.groundElChargerCnt) || 0) + (n(y.undergroundElChargerCnt) || 0),
+      subway: [t(y.subwayLine), t(y.subwayStation) && `${t(y.subwayStation)}역`].filter(Boolean).join(' '), subwayTime: t(y.kaptdWtimesub),
+      busTime: t(y.kaptdWtimebus), school: t(y.educationFacility), welfare: t(y.welfareFacility),
+    };
+  }, { persist: true });
+}
+
+// 실거래가 단지(이름·법정동·지은 해) → K-apt 단지 짝 찾기. 이름이 달라서('한라주공4-2' ↔ '산본한라2차')
+// 같은 법정동 안에서 이름 글자 겹침 + 숫자(차·단지) + 준공 연도로 고른다. 확신이 없으면 null(사용자가 직접 고름).
+const kname = (s) => String(s || '').replace(/아파트|\(.*?\)|\s/g, '');
+const bigrams = (s) => {
+  const t = s.replace(/[^가-힣a-z]/gi, '').replace(/주공|단지|차/g, '');
+  const o = new Set();
+  for (let i = 0; i < t.length - 1; i++) o.add(t.slice(i, i + 2));
+  return o;
+};
+const nums = (s) => (s.match(/\d+/g) || []).map(Number);
+function nameScore(tradeName, kaptName) {
+  const a = bigrams(kname(tradeName));
+  const b = bigrams(kname(kaptName));
+  let common = 0;
+  for (const g of a) if (b.has(g)) common++;
+  if (!common) return 0;
+  const dice = (2 * common) / (a.size + b.size);
+  const na = nums(kname(tradeName));
+  const nb = nums(kname(kaptName));
+  let numPart;
+  if (na.length) numPart = na.filter((v) => nb.includes(v)).length / na.length - (nb.some((v) => !na.includes(v)) ? 0.2 : 0);
+  else numPart = nb.every((v) => v === 1) ? 0.3 : -0.2; // '가야주공' 처럼 숫자가 없으면 1차로 본다
+  return dice + numPart * 0.6;
+}
+export function matchKapt(apt, built) {
+  return cached(`kapt:match:${apt.lawd}:${apt.dong}:${apt.name}`, 30 * 864e5, async () => {
+    const all = await kaptList(apt.lawd);
+    const same = all.filter((x) => x.dong === apt.dong);
+    const ranked = (same.length ? same : all)
+      .map((x) => ({ ...x, s: nameScore(apt.name, x.name) }))
+      .filter((x) => x.s > 0)
+      .sort((p, q) => q.s - p.s)
+      .slice(0, 5);
+    if (!ranked.length) return null;
+    if (built) {
+      const infos = await Promise.all(ranked.map((x) => kaptInfo(x.code).catch(() => null)));
+      ranked.forEach((x, i) => {
+        const y = Number(infos[i]?.used?.slice(0, 4));
+        if (y) x.s += Math.abs(y - built) <= 1 ? 1 : -1;
+      });
+      ranked.sort((p, q) => q.s - p.s);
+    }
+    return ranked[0].s >= 0.3 ? ranked[0].code : null;
+  }, { persist: true });
 }
 
 // '단지 추가' 목록: 시군구 하나에서 최근 1년 동안 거래가 있었던 단지(동·이름별 건수·최근 거래일·지은 해)
