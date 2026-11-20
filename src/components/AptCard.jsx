@@ -3,7 +3,7 @@ import { DEFAULT_APTS, fetchApt, useFetch } from '../api.js';
 import { markDirty, openLogin, useAccount } from '../account.js';
 import Card, { Body } from './Card.jsx';
 import { KaptInfo, PriceChart } from './AptExtras.jsx';
-import { areaKey, median, oddTrades } from '../aptStats.js';
+import { areaKey, oddTrades, periodChange } from '../aptStats.js';
 
 const AptPicker = lazy(() => import('./AptPicker.jsx'));
 
@@ -19,25 +19,14 @@ const pyeong = (m2) => (m2 == null ? '' : `${(m2 * 0.3025).toFixed(1)}평`);
 const APT_SHOW = 4; // 처음에 보여 줄 거래 수 (나머지는 '더 보기')
 const dateText = (d) => `${Number(d.slice(2, 4))}.${Number(d.slice(5, 7))}.${Number(d.slice(8, 10))}`;
 
-// 'YYYY-MM-DD' 에서 n일 전 날짜
-const daysBefore = (d, n) => new Date(Date.parse(`${d}T00:00:00Z`) - n * 864e5).toISOString().slice(0, 10);
-const mid = (list) => median(list.map((t) => t.amount));
-// 1년 전 대비: 이 평형의 최근 거래일 기준 3개월 중앙값 ↔ 1년 전 같은 3개월 중앙값(직거래·시세와 차이 큰 거래 뺀 것). 어느 쪽이든 거래가 없으면 null
-function yearChange(trades) {
-  if (!trades.length) return null;
-  const last = trades[0].date; // 최신순
-  const recent = trades.filter((t) => t.date > daysBefore(last, 90));
-  const base = trades.filter((t) => t.date <= daysBefore(last, 365) && t.date > daysBefore(last, 455));
-  if (!recent.length || !base.length) return null;
-  return { pct: ((mid(recent) - mid(base)) / mid(base)) * 100, base: mid(base), n: base.length };
-}
+const yearChange = (trades) => periodChange(trades, 365);
 function Change({ c }) {
   if (!c) return <small className="apt-change">1년 전 같은 때 거래 없음</small>;
   const p = Math.round(c.pct * 10) / 10;
   const cls = p > 0 ? 'up' : p < 0 ? 'down' : 'flat';
   const sign = p > 0 ? '▲' : p < 0 ? '▼' : '';
   return (
-    <small className={`apt-change apt-change-${cls}`} title={`1년 전 같은 3개월 평균 ${price(c.base)} (${c.n}건)과 최근 3개월 평균 비교`}>
+    <small className={`apt-change apt-change-${cls}`} title={`1년 전 같은 3개월 중간값 ${price(c.base)} (${c.n}건)과 최근 3개월 중간값 ${price(c.now)} 비교`}>
       1년 전보다 <b>{sign} {Math.abs(p).toFixed(1)}%</b>
     </small>
   );
@@ -187,8 +176,6 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
     for (const g of m.values()) {
       const same = ok.filter((t) => areaKey(t.area) === g.key);
       g.change = yearChange(same);
-      const highs = valid.filter((t) => areaKey(t.area) === g.key && !odd.has(t)).map((t) => t.amount || 0);
-      g.high = highs.length ? Math.max(...highs) : null;
       g.trades = same;
     }
     return [...m.values()].sort((a, b) => a.key - b.key);
@@ -238,8 +225,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
           >
             <span className="apt-area-size">전용 {g.area}㎡ <small>({pyeong(g.area)})</small></span>
             <strong>{price(g.latest.amount)}</strong>
-            <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층{odd.has(g.latest) && <span className={`apt-odd${odd.get(g.latest) === '직거래' ? '' : ' warn'}`}>{odd.get(g.latest)}</span>} · 1년 {g.count}건</small>
-            <small>1년 최고 {g.high ? price(g.high) : '-'}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>}</small>
+            <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층{odd.has(g.latest) && <span className={`apt-odd${odd.get(g.latest) === '직거래' ? '' : ' warn'}`}>{odd.get(g.latest)}</span>}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>} · 1년 {g.count}건</small>
             <Change c={g.change} />
           </button>
         ))}

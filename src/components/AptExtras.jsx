@@ -1,7 +1,7 @@
 import { useMemo, useRef, useState } from 'react';
 import { useFetch } from '../api.js';
 import { kaptInfo, kaptList, matchKapt } from '../sources.js';
-import { median } from '../aptStats.js';
+import { median, periodChange } from '../aptStats.js';
 
 // ---------- 시세 흐름 그래프: 평형 하나의 월별 중앙 거래가(선) + 아래에 월별 거래 건수(막대, 따로 그린 작은 그래프) ----------
 // trades 는 직거래·시세와 차이 큰 거래를 뺀 것(aptStats.js). 한 달에 1건이면 속 빈 점(참고용).
@@ -70,7 +70,9 @@ export function PriceChart({ trades, others = [], from, to, title }) {
   const maxN = Math.max(...months.map((m) => m.n + m.extra.length), 1);
   const first = vals[0];
   const last = vals[vals.length - 1];
-  const pct = ((last.avg - first.avg) / first.avg) * 100;
+  // 평형 칸의 '1년 전보다'와 같은 방식(최근 3개월 중간값 ↔ 2년 전 같은 3개월 중간값)
+  const two = periodChange(trades, 730);
+  const pct = two ? Math.round(two.pct * 10) / 10 : 0;
 
   const pick = (clientX) => {
     const r = svgRef.current?.getBoundingClientRect();
@@ -88,9 +90,14 @@ export function PriceChart({ trades, others = [], from, to, title }) {
     <figure className="apt-chart">
       <figcaption>
         <b>{title}</b> 월별 중간 거래가 (2년)
-        <span className={`apt-chart-pct ${pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : ''}`}>
-          {label(first.ym)} → {label(last.ym)} {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
-        </span>
+        {two ? (
+          <span
+            className={`apt-chart-pct ${pct > 0.05 ? 'up' : pct < -0.05 ? 'down' : ''}`}
+            title={`2년 전 같은 3개월 중간값 ${priceText(two.base)} (${two.n}건)과 최근 3개월 중간값 ${priceText(two.now)} (${two.nNow}건) 비교`}
+          >
+            2년 전보다 {pct > 0 ? '▲' : pct < 0 ? '▼' : ''} {Math.abs(pct).toFixed(1)}%
+          </span>
+        ) : <span className="apt-chart-pct">2년 전 같은 때 거래 없음</span>}
       </figcaption>
       <div className="apt-chart-tip" aria-live="polite">
         {h ? (

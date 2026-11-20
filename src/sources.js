@@ -490,13 +490,13 @@ function rtmsMonth(key, lawd, ym, isRecent) {
   });
 }
 
-// 단지 하나의 최근 25개월 거래(화면 목록은 13개월, 시세 그래프는 24개월, 1년 전 대비 변화도 여기서).
+// 단지 하나의 최근 28개월 거래(화면 목록은 13개월, 시세 그래프는 24개월, 1년·2년 전 대비(3개월 중간값 비교)도 여기서).
 // 걸러 낸 결과만 3시간 동안 이 기기에 저장해 다시 열 때 바로 보인다.
 export async function fetchApt(apt) {
   const key = dataKey();
   if (!key) throw needKey('공공데이터포털');
-  const months = recentMonths(25);
-  const trades = await cached(`apt5:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
+  const months = recentMonths(28);
+  const trades = await cached(`apt6:${apt.lawd}:${apt.dong}:${apt.name}`, 3 * 3600e3, async () => {
     const monthly = await Promise.all(months.map((ym, i) => rtmsMonth(key, apt.lawd, ym, i < 2)));
     return monthly.flat()
       .filter((t) => t.dong === apt.dong && t.name === apt.name)
