@@ -555,6 +555,13 @@ button.ev-row:hover { border-color: var(--primary); }
 .card { scroll-margin-top: 72px; }
 .mobile-tabbar { display: none; }
 .more-switch { display: none; }
+/* 핸드폰 '교통' 탭 안의 작은 탭(버스·지하철 / 주유소). 회색 바 위 흰 칸 */
+.sub-switch { display: none; }
+@media (max-width: 640px) {
+  .sub-switch { display: flex; gap: 4px; padding: 4px; margin-bottom: 12px; background: var(--bg-subtle); border-radius: var(--radius-md); }
+  .sub-switch button { flex: 1; min-height: 44px; border: 0; border-radius: var(--radius-sm); background: transparent; font: inherit; font-size: 1rem; font-weight: 700; color: var(--text-sub); cursor: pointer; }
+  .sub-switch button.on { background: var(--bg-card); color: var(--primary); box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12); }
+}
 @media (max-width: 640px) { .more-switch { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; } }
 .app-foot { margin-top: 24px; display: flex; flex-direction: column; align-items: center; gap: 10px; color: var(--text-sub); font-size: 0.8rem; text-align: center; }
 

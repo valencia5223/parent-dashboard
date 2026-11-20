@@ -132,6 +132,11 @@ const CARD_TABS = [
   { id: 'tour', label: '나들이', icon: '🎡' },
 ];
 const MTAB_KEY = 'pd_mtab';
+const SUB_KEY = 'pd_mtab_transit';
+const TRANSIT_SUBS = [
+  { id: 'transit', label: '버스·지하철', icon: '🚌' },
+  { id: 'gas', label: '주유소', icon: '⛽' },
+];
 // 핸드폰 아래 바에 둘 카드(나머지는 '더보기'). 사용자가 더보기에서 바꿀 수 있다
 const BAR_KEY = 'pd_mtab_bar';
 const BAR_MAX = 6;
@@ -233,6 +238,10 @@ function Dashboard() {
     if (el) el.scrollIntoView({ behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
   };
   const slot = (id) => `slot${mtab === id ? ' slot-on' : ''}`;
+  // 핸드폰 '교통' 탭 안의 작은 탭: 버스·지하철 / 주유소 (PC 는 두 카드 모두 보임)
+  const [sub, setSub] = useState(() => (load(SUB_KEY, 'transit') === 'gas' ? 'gas' : 'transit'));
+  const pickSub = (id) => { setSub(id); store(SUB_KEY, id); window.scrollTo({ top: 0 }); };
+  const subSlot = (id) => `slot${mtab === 'transit' && sub === id ? ' slot-on' : ''}`;
 
   let where;
   if (status === 'finding' && !pos) where = '현재 위치를 찾는 중…';
@@ -290,6 +299,15 @@ function Dashboard() {
             </button>
           ))}
         </nav>
+        {mtab === 'transit' && (
+          <nav className="sub-switch" role="tablist" aria-label="교통 고르기">
+            {TRANSIT_SUBS.map((t) => (
+              <button key={t.id} type="button" role="tab" aria-selected={sub === t.id} className={sub === t.id ? 'on' : ''} onClick={() => pickSub(t.id)}>
+                <span aria-hidden>{t.icon}</span> {t.label}
+              </button>
+            ))}
+          </nav>
+        )}
         {/* 핸드폰: 더보기 카드를 보는 중이면 위에 더보기 카드끼리 바로 바꾸는 줄 */}
         {inMore && (
           <nav className="more-switch" aria-label="더보기 카드 고르기">
@@ -302,8 +320,8 @@ function Dashboard() {
         )}
         <main className="grid" key={refreshKey}>
           <div className={slot('weather')} data-card="weather"><WeatherCard pos={pos} /></div>
-          <div className={slot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
-          <div className={slot('transit')} data-card="gas"><GasCard pos={pos} /></div>
+          <div className={subSlot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
+          <div className={subSlot('gas')} data-card="gas"><GasCard pos={pos} /></div>
           <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
           <div className={slot('life')} data-card="life"><LifeCard /></div>
