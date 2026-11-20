@@ -91,7 +91,13 @@ export default function SubwaySection({ pos }) {
   const stations = useFetch(() => fetchSubwayStations(pos), [pos.lat, pos.lng]);
   const [picked, setPicked] = useState(null);
   const [favs, setFavs] = useState(loadFavs);
-  useEffect(() => { setPicked(null); }, [pos.lat, pos.lng]);
+  // 위치가 바뀌면 고른 역을 비운다(렌더 중에 바로 맞춘다)
+  const posKey = `${pos.lat},${pos.lng}`;
+  const [seenPos, setSeenPos] = useState(posKey);
+  if (posKey !== seenPos) {
+    setSeenPos(posKey);
+    setPicked(null);
+  }
   // 계정에서 받은 즐겨찾기로 바뀌면 다시 읽는다
   useEffect(() => {
     const re = () => setFavs(loadFavs());

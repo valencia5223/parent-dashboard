@@ -147,8 +147,15 @@ export default function BusSection({ pos }) {
     return () => window.removeEventListener('pd-data', re);
   }, []);
 
-  // 위치가 바뀌면 맨 앞(즐겨찾기 또는 가장 가까운) 정류장으로 돌아간다
-  useEffect(() => { setPicked(null); setAllStops(false); setExtra(null); }, [pos.lat, pos.lng]);
+  // 위치가 바뀌면 맨 앞(즐겨찾기 또는 가장 가까운) 정류장으로 돌아간다(렌더 중에 바로 맞춘다)
+  const posKey = `${pos.lat},${pos.lng}`;
+  const [seenPos, setSeenPos] = useState(posKey);
+  if (posKey !== seenPos) {
+    setSeenPos(posKey);
+    setPicked(null);
+    setAllStops(false);
+    setExtra(null);
+  }
 
   const toggleFav = (s) => {
     setFavs((list) => {

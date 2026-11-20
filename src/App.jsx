@@ -39,7 +39,8 @@ function useLocation() {
   // 직접 고른 곳이 없으면 지난번 GPS 위치로 바로 보여 주고, 새 위치는 뒤에서 찾는다
   const [pos, setPos] = useState(() => (saved ? { ...saved, source: 'manual' } : load(LAST_GPS_KEY, null)));
   const [status, setStatus] = useState(saved ? 'manual' : 'finding'); // finding | gps | manual | denied | unsupported
-  const [label, setLabel] = useState('');
+  // GPS 위치의 동네 이름. 어느 위치의 이름인지(at)를 같이 두어, 위치가 바뀌면 새 이름이 올 때까지 비워 보인다
+  const [geo, setGeo] = useState({ at: null, label: '' })
   const [recent, setRecent] = useState(() => load(RECENT_KEY, []));
   // 계정에서 받은 최근 위치로 바뀌면 다시 읽는다
   useEffect(() => {
@@ -104,18 +105,19 @@ function useLocation() {
     });
   }, []);
 
-  // 처음 열 때 직접 고른 위치가 없으면 GPS 로
-  useEffect(() => { if (!saved) locate(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  // 처음 열 때 직접 고른 위치가 없으면 GPS 로(기기 GPS 라는 바깥 시스템을 여는 일이라 effect 에서 한다)
+  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  useEffect(() => { if (!saved) locate(); }, []);
 
   // GPS 위치는 동네 이름을 찾아 보여 준다(직접 고른 곳은 고른 이름 그대로)
   useEffect(() => {
     if (!pos || pos.source !== 'gps') return undefined;
     let alive = true;
-    setLabel('');
-    reverseGeocode(pos).then((l) => alive && setLabel(l)).catch(() => {});
+    reverseGeocode(pos).then((l) => alive && setGeo({ at: pos, label: l })).catch(() => {});
     return () => { alive = false; };
   }, [pos]);
 
+  const label = geo.at === pos ? geo.label : '';
   return { pos, status, label, recent, gpsError, locate, pick, removeRecent };
 }
 
@@ -198,8 +200,12 @@ function Dashboard() {
   const [picking, setPicking] = useState(false);
   const acc = useAccount();
   const [accountOpen, setAccountOpen] = useState(false);
-  // 비밀번호 재설정 링크로 들어오면 새 비밀번호 창을 연다
-  useEffect(() => { if (acc.recovery) setAccountOpen(true); }, [acc.recovery]);
+  // 비밀번호 재설정 링크로 들어오면 새 비밀번호 창을 연다(값이 바뀌는 그 순간에 한 번, 렌더 중에 맞춘다)
+  const [seenRecovery, setSeenRecovery] = useState(false);
+  if (acc.recovery !== seenRecovery) {
+    setSeenRecovery(acc.recovery);
+    if (acc.recovery) setAccountOpen(true);
+  }
   const closeAccount = useCallback(() => setAccountOpen(false), []);
   useEffect(() => {
     const open = () => setAccountOpen(true);

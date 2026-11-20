@@ -71,9 +71,9 @@ export function SignIn({ onClose = () => {} }) {
   return (
     <form className="account-body" onSubmit={submit}>
       {mode !== 'forgot' && (
-        <div className="toggle-row" role="tablist">
-          <button type="button" className={`chip${mode === 'in' ? ' chip-on' : ''}`} aria-pressed={mode === 'in'} onClick={() => go('in')}>로그인</button>
-          <button type="button" className={`chip${mode === 'up' ? ' chip-on' : ''}`} aria-pressed={mode === 'up'} onClick={() => go('up')}>처음이에요 (가입)</button>
+        <div className="seg" role="tablist" aria-label="로그인·가입">
+          <button type="button" role="tab" className={mode === 'in' ? 'on' : ''} aria-selected={mode === 'in'} onClick={() => go('in')}>로그인</button>
+          <button type="button" role="tab" className={mode === 'up' ? 'on' : ''} aria-selected={mode === 'up'} onClick={() => go('up')}>처음이에요 (가입)</button>
         </div>
       )}
       <p className="account-note">

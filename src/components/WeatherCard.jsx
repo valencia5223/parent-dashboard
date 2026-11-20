@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react';
 import { fetchAir, fetchWeather, searchPlaces, timeText, useFetch } from '../api.js';
 import { markDirty } from '../account.js';
 import Card, { Body } from './Card.jsx';
-import { AirMini, airTips } from './AirSection.jsx';
+import { AirMini } from './AirSection.jsx';
+import { airTips } from '../air.js';
 
 // WMO 날씨 코드 → 한국어
 function sky(code, isDay = 1) {

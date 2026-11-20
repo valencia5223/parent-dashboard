@@ -13,7 +13,7 @@ export default function AptPicker({ pos, existing, onAdd, onClose }) {
   const [lawd, setLawd] = useState('');
   const [q, setQ] = useState('');
   const closeRef = useRef(onClose);
-  closeRef.current = onClose;
+  useEffect(() => { closeRef.current = onClose; });
   const startPos = useRef(pos);
 
   // 처음 한 번만: 지역 목록을 불러와 지금 위치의 시·군·구를 고른다
