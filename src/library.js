@@ -121,11 +121,46 @@ const bookOf = (o) => ({
   loans: num(o.loan_count ?? o.loanCnt),
 });
 
+// 책 찾기. 정보나루의 keyword 검색은 여러 단어('국민이 먼저입니다')면 0건이 되거나 엉뚱한 책이 나와서
+// 제목(title)·저자(author) 검색을 같이 부르고, 입력한 글자와 맞는 정도로 다시 줄 세운다.
+// 제목 검색은 낱말 일부만 맞아도 대출 많은 순으로 잔뜩 오므로 100권을 받아 그 안에서 고른다.
+const squash = (s) => String(s || '').toLowerCase().replace(/[^0-9a-z가-힣]/g, '');
+function matchScore(b, q, words) {
+  const t = squash(b.title);
+  const a = squash(b.authors);
+  if (t.startsWith(q)) return 5;
+  if (t.includes(q)) return 4;
+  if (a.includes(q)) return 4;
+  if (words.length > 1 && words.every((w) => t.includes(w) || a.includes(w))) return 2;
+  if (words.some((w) => w.length > 1 && t.includes(w))) return 1;
+  return 0;
+}
 export function searchBooks(text) {
-  const k = String(text || '').trim();
-  return cached(`lib:q:${k}`, 24 * 3600e3, async () => {
-    const r = await lib('srchBooks', { keyword: k, pageNo: '1', pageSize: '15' });
-    return unwrap(r.docs, 'doc').map(bookOf).filter((b) => b.isbn && b.title);
+  const k = String(text || '').trim().replace(/\s+/g, ' ');
+  return cached(`lib:q2:${k}`, 24 * 3600e3, async () => {
+    const isbn = k.replace(/[-\s]/g, '');
+    if (/^\d{13}$/.test(isbn)) {
+      const r = await lib('srchBooks', { isbn13: isbn, pageNo: '1', pageSize: '5' });
+      return unwrap(r.docs, 'doc').map(bookOf).filter((b) => b.isbn && b.title);
+    }
+    const tries = await Promise.allSettled([
+      lib('srchBooks', { title: k, pageNo: '1', pageSize: '100' }),
+      lib('srchBooks', { author: k, pageNo: '1', pageSize: '30' }),
+    ]);
+    if (tries.every((r) => r.status === 'rejected')) throw tries[0].reason;
+    const q = squash(k);
+    const words = k.split(' ').map(squash).filter(Boolean);
+    const seen = new Set();
+    const all = tries
+      .flatMap((r) => (r.status === 'fulfilled' ? unwrap(r.value.docs, 'doc') : []))
+      .map(bookOf)
+      .filter((b) => b.isbn && b.title && !seen.has(b.isbn) && seen.add(b.isbn))
+      .map((b) => ({ b, s: matchScore(b, q, words) }));
+    const good = all.filter((x) => x.s > 0);
+    return (good.length ? good : all)
+      .sort((x, y) => (y.s - x.s) || ((y.b.loans || 0) - (x.b.loans || 0)))
+      .slice(0, 20)
+      .map((x) => x.b);
   });
 }
 
