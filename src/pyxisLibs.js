@@ -85,8 +85,10 @@ export async function pyxisLibraries(sys) {
 // 이 책(ISBN)이 지점마다 있는지·지금 빌릴 수 있는지(10분 보관). { [code]: { has, available, state, copies } }
 // copies: 책 한 권마다 위치 [{ room: '2층 종합자료실(일반도서)', shelf: '종합자료실 33번 서가', callNo, state, due, map }]
 //   (1/biblios/<id>/items, 지점 id 별로 묶여 옴. 실패하면 위치 없이 상태만)
+// 관내열람(빌릴 수 없고 도서관 안에서만 보는 책)은 빼고, 그런 책만 있는 지점은 목록에서도 뺀다.
+const inLibOnly = (s) => String(s || '').replace(/\s/g, '').includes('관내열람');
 export function pyxisAvailability(sys, isbn) {
-  return cached(`pyx:isbn2:${sys.id}:${isbn}`, 10 * 60e3, async () => {
+  return cached(`pyx:isbn3:${sys.id}:${isbn}`, 10 * 60e3, async () => {
     const q = new URLSearchParams({ all: `k|a|${isbn}`, max: '50' });
     const d = await getJSON(`${sys.api}/1/collections/1/search?${q}`);
     const out = {};
@@ -95,6 +97,7 @@ export function pyxisAvailability(sys, isbn) {
       if (String(b.isbn || '').replace(/\D/g, '') !== isbn) continue;
       biblios.push(b.id);
       for (const v of b.branchVolumes || []) {
+        if (inLibOnly(v.cState)) continue;
         const code = `${sys.id}:${v.id}`;
         const ready = v.cStateCode === 'READY';
         const prev = out[code];
@@ -109,6 +112,7 @@ export function pyxisAvailability(sys, isbn) {
           const lib = out[`${sys.id}:${bid}`];
           if (!lib || !Array.isArray(list)) continue;
           for (const it of list) {
+            if (inLibOnly(it.circulationState?.name) || inLibOnly(it.itemState?.name) || inLibOnly(it.location?.name)) continue;
             const map = it.shelf?.attachment?.[0]?.originalImageUrl;
             lib.copies.push({
               room: String(it.location?.name || '').replace(/\([^()]*\)$/, '').trim(), // 끝의 '(산본)' 같은 지점 이름은 뺌
