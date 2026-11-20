@@ -123,19 +123,19 @@ function useLocation() {
 // 다른 카드도 숨겨진 채 계속 정보를 받아 두어서 탭을 누르면 바로 보인다.
 const CARD_TABS = [
   { id: 'weather', label: '날씨', icon: '🌡️' },
-  { id: 'transit', label: '교통', icon: '🚏' },
-  { id: 'gas', label: '주유', icon: '⛽' },
+  // 교통 탭 = 버스·지하철 카드 + 주유 카드(핸드폰 아래 바에는 짧게 '교통')
+  { id: 'transit', label: '교통·주유', short: '교통', icon: '🚏' },
+  { id: 'library', label: '도서관', icon: <LibraryIcon /> },
   { id: 'apt', label: '집값', icon: '🏠' },
   { id: 'health', label: '병원', icon: '💊' },
   { id: 'life', label: '달력', icon: '📅' },
-  { id: 'library', label: '도서관', icon: <LibraryIcon /> },
   { id: 'tour', label: '나들이', icon: '🎡' },
 ];
 const MTAB_KEY = 'pd_mtab';
 // 핸드폰 아래 바에 둘 카드(나머지는 '더보기'). 사용자가 더보기에서 바꿀 수 있다
 const BAR_KEY = 'pd_mtab_bar';
 const BAR_MAX = 6;
-const DEFAULT_BAR = ['weather', 'transit', 'gas', 'apt', 'health', 'life'];
+const DEFAULT_BAR = ['weather', 'transit', 'library', 'apt', 'health', 'life'];
 // 핸드폰에서는 이 카드들을 처음 열 때 불러온다(하루 호출 한도가 있는 자료)
 const LAZY_CARDS = new Set(['library', 'tour']);
 const mobileMQ = '(max-width: 640px)';
@@ -202,11 +202,14 @@ function Dashboard() {
     return () => window.removeEventListener('pd-login', open);
   }, []);
   const [mtab, setMtab] = useState(() => {
-    const v = load(MTAB_KEY, 'weather');
+    const saved = load(MTAB_KEY, 'weather');
+    const v = saved === 'gas' ? 'transit' : saved;
     return CARD_TABS.some((t) => t.id === v) ? v : 'weather';
   });
   const [bar, setBar] = useState(() => {
-    const v = load(BAR_KEY, null);
+    let v = load(BAR_KEY, null);
+    // 예전 '주유' 탭은 교통 탭에 합쳐졌다 → 그 자리에 도서관
+    if (Array.isArray(v) && v.includes('gas')) v = v.includes('library') ? v.filter((id) => id !== 'gas') : v.map((id) => (id === 'gas' ? 'library' : id));
     const ok = Array.isArray(v) ? CARD_TABS.map((t) => t.id).filter((id) => v.includes(id)).slice(0, BAR_MAX) : [];
     return ok.length ? ok : DEFAULT_BAR;
   });
@@ -300,7 +303,7 @@ function Dashboard() {
         <main className="grid" key={refreshKey}>
           <div className={slot('weather')} data-card="weather"><WeatherCard pos={pos} /></div>
           <div className={slot('transit')} data-card="transit"><TransitCard pos={pos} /></div>
-          <div className={slot('gas')} data-card="gas"><GasCard pos={pos} /></div>
+          <div className={slot('transit')} data-card="gas"><GasCard pos={pos} /></div>
           <div className={slot('apt')} data-card="apt"><AptCard pos={pos} /></div>
           <div className={slot('health')} data-card="health"><HealthCard pos={pos} /></div>
           <div className={slot('life')} data-card="life"><LifeCard /></div>
@@ -320,7 +323,7 @@ function Dashboard() {
           {CARD_TABS.filter((t) => bar.includes(t.id)).map((t) => (
             <button key={t.id} type="button" className={mtab === t.id ? 'on' : ''} onClick={() => pickTab(t.id)} aria-current={mtab === t.id ? 'page' : undefined}>
               <span className="mtab-icon" aria-hidden>{t.icon}</span>
-              <span className="mtab-label">{t.label}</span>
+              <span className="mtab-label">{t.short || t.label}</span>
             </button>
           ))}
           {/* 더보기: 지금 보는 카드가 바에 없으면 그 카드 이름으로 보여 준다 */}
