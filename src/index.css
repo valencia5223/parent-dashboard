@@ -485,8 +485,12 @@ button.ev-row:hover { border-color: var(--primary); }
 .apt-chart-dot { fill: var(--primary); stroke: var(--bg-card); stroke-width: 2; }
 .apt-chart-dot.one { fill: var(--bg-card); stroke: var(--primary); }
 .apt-chart-note { margin: 4px 0 0; font-size: 0.78rem; color: var(--text-sub); }
-.apt-odd { color: var(--text-sub); }
-.apt-odd.warn { display: inline-block; margin-left: 4px; padding: 0 6px; border-radius: 999px; background: var(--bg-subtle); color: var(--text-body); font-size: 0.75rem; font-weight: 700; }
+/* 직거래·시세와 차이 큰 거래 꼬리표(직거래는 노란 바탕, 나머지는 회색) */
+.apt-odd { display: inline-block; margin-left: 6px; padding: 1px 7px; border-radius: 999px; background: var(--normal-bg); color: var(--text-main); border: 1px solid var(--border-color); font-size: 0.75rem; font-weight: 800; vertical-align: 1px; white-space: nowrap; }
+.apt-odd.warn { background: var(--bg-subtle); color: var(--text-body); }
+.apt-chart-extra .apt-odd { margin-left: 0; }
+.apt-chart-other { fill: var(--text-sub); opacity: 0.55; }
+.apt-chart-bar-other { fill: var(--text-sub); opacity: 0.3; }
 .apt-chart-cross { stroke: var(--text-sub); stroke-width: 1; stroke-dasharray: 3 3; }
 .apt-chart-bar { fill: var(--primary); opacity: 0.35; }
 .apt-chart-bar.on { opacity: 0.9; }

@@ -230,7 +230,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
           >
             <span className="apt-area-size">전용 {g.area}㎡ <small>({pyeong(g.area)})</small></span>
             <strong>{price(g.latest.amount)}</strong>
-            <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층 · 1년 {g.count}건</small>
+            <small>최근 {dateText(g.latest.date)} · {g.latest.floor}층{odd.has(g.latest) && <span className={`apt-odd${odd.get(g.latest) === '직거래' ? '' : ' warn'}`}>{odd.get(g.latest)}</span>} · 1년 {g.count}건</small>
             <small>1년 최고 {g.high ? price(g.high) : '-'}{records.has(g.latest) && <span className="apt-record">2년 최고가</span>}</small>
             <Change c={g.change} />
           </button>
@@ -240,6 +240,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
         <PriceChart
           key={chartGroup.key}
           trades={chartGroup.trades}
+          others={[...odd].filter(([t]) => !t.canceled && areaKey(t.area) === chartGroup.key).map(([t, why]) => ({ t, why }))}
           from={apt.chartFrom || apt.from}
           to={apt.to}
           title={`전용 ${chartGroup.area}㎡`}
@@ -258,7 +259,7 @@ function AptBody({ apt, source, canEdit, onPickKapt }) {
               <td className="num">
                 {price(t.amount)}
                 {t.canceled && <small> 취소된 거래</small>}
-                {odd.has(t) && <small className={`apt-odd${odd.get(t) === '직거래' ? '' : ' warn'}`}> {odd.get(t)}</small>}
+                {odd.has(t) && <span className={`apt-odd${odd.get(t) === '직거래' ? '' : ' warn'}`}>{odd.get(t)}</span>}
                 {records.has(t) && <span className="apt-record">2년 최고가</span>}
               </td>
             </tr>

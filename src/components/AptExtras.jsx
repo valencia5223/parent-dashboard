@@ -34,16 +34,18 @@ const H = 170;
 const PAD = { l: 44, r: 12, t: 14, b: 22 };
 const VH = 46;
 
-export function PriceChart({ trades, from, to, title }) {
+// others: 선에서 뺀 같은 평형 거래 [{ t, why }] — 회색 마름모로 따로 찍고(범위 밖이면 가장자리에 ▼▲), 누르면 '직거래'라고 알려 준다
+export function PriceChart({ trades, others = [], from, to, title }) {
   const [hover, setHover] = useState(null);
   const svgRef = useRef(null);
   const months = useMemo(() => {
     const ms = monthsBetween(from, to);
     return ms.map((ym) => {
       const list = trades.filter((t) => !t.canceled && t.amount && t.date.slice(0, 7).replace('-', '') === ym);
-      return { ym, n: list.length, avg: median(list.map((t) => t.amount)), max: list.length ? Math.max(...list.map((t) => t.amount)) : null };
+      const extra = others.filter((o) => o.t.date.slice(0, 7).replace('-', '') === ym);
+      return { ym, n: list.length, avg: median(list.map((t) => t.amount)), max: list.length ? Math.max(...list.map((t) => t.amount)) : null, extra };
     });
-  }, [trades, from, to]);
+  }, [trades, others, from, to]);
   const vals = months.filter((m) => m.avg != null);
   if (vals.length < 2) return <p className="apt-chart-empty">{title} · 2년 동안 거래가 적어 그래프를 그리지 못했어요</p>;
 
@@ -65,7 +67,7 @@ export function PriceChart({ trades, from, to, title }) {
     if (prev) segs.push({ x1: x(prev.i), y1: y(prev.avg), x2: x(i), y2: y(m.avg), gap: i - prev.i > 1 });
     prev = { i, avg: m.avg };
   });
-  const maxN = Math.max(...months.map((m) => m.n), 1);
+  const maxN = Math.max(...months.map((m) => m.n + m.extra.length), 1);
   const first = vals[0];
   const last = vals[vals.length - 1];
   const pct = ((last.avg - first.avg) / first.avg) * 100;
@@ -76,7 +78,7 @@ export function PriceChart({ trades, from, to, title }) {
     const px = ((clientX - r.left) / r.width) * W;
     let best = null;
     let bd = Infinity;
-    months.forEach((m, i) => { const d = Math.abs(x(i) - px); if (m.n && d < bd) { bd = d; best = i; } });
+    months.forEach((m, i) => { const d = Math.abs(x(i) - px); if ((m.n || m.extra.length) && d < bd) { bd = d; best = i; } });
     setHover(best);
   };
   const h = hover != null ? months[hover] : null;
@@ -91,8 +93,15 @@ export function PriceChart({ trades, from, to, title }) {
         </span>
       </figcaption>
       <div className="apt-chart-tip" aria-live="polite">
-        {h ? <>{`20${label(h.ym)}월`} · {h.n > 1 ? '중간값' : '1건'} <b>{priceText(h.avg)}</b>{h.n > 1 ? ` · ${h.n}건 · 최고 ${priceText(h.max)}` : ' (거래 1건이라 참고만)'}</>
-          : <span className="muted">그래프를 누르면 그달 평균 가격이 보여요</span>}
+        {h ? (
+          <>
+            {`20${label(h.ym)}월`}
+            {h.n > 0 && <> · {h.n > 1 ? '중간값' : '1건'} <b>{priceText(h.avg)}</b>{h.n > 1 ? ` · ${h.n}건 · 최고 ${priceText(h.max)}` : ' (거래 1건이라 참고만)'}</>}
+            {h.extra.map((o) => (
+              <span key={`${o.t.date}${o.t.floor}${o.t.amount}`} className="apt-chart-extra"> · <span className={`apt-odd${o.why === '직거래' ? '' : ' warn'}`}>{o.why}</span> {priceText(o.t.amount)}</span>
+            ))}
+          </>
+        ) : <span className="muted">그래프를 누르면 그달 가격이 보여요</span>}
       </div>
       <svg
         ref={svgRef}
@@ -115,6 +124,15 @@ export function PriceChart({ trades, from, to, title }) {
         )))}
         {h && <line x1={x(hover)} x2={x(hover)} y1={PAD.t} y2={PAD.t + ih} className="apt-chart-cross" />}
         {segs.map((s) => <line key={`${s.x1}`} {...s} gap={undefined} className={`apt-chart-line${s.gap ? ' gap' : ''}`} />)}
+        {months.flatMap((m, i) => m.extra.map((o, j) => {
+          const v = y(o.t.amount);
+          const cy = Math.min(PAD.t + ih, Math.max(PAD.t, v));
+          const cx = x(i) + (j - (m.extra.length - 1) / 2) * 8;
+          const out = v > PAD.t + ih ? 'down' : v < PAD.t ? 'up' : '';
+          return out
+            ? <path key={`${m.ym}-${j}`} d={out === 'down' ? `M${cx - 5} ${cy - 6}h10l-5 7z` : `M${cx - 5} ${cy + 6}h10l-5 -7z`} className="apt-chart-other" />
+            : <path key={`${m.ym}-${j}`} d={`M${cx} ${cy - 5}l5 5l-5 5l-5 -5z`} className="apt-chart-other" />;
+        }))}
         {months.map((m, i) => m.avg != null && (
           <circle key={m.ym} cx={x(i)} cy={y(m.avg)} r={hover === i ? 6 : 4} className={`apt-chart-dot${m.n === 1 ? ' one' : ''}`} />
         ))}
@@ -124,11 +142,17 @@ export function PriceChart({ trades, from, to, title }) {
         {months.map((m, i) => {
           const bw = Math.max(4, iw / months.length - 4);
           const bh = m.n ? Math.max(3, (m.n / maxN) * (VH - 16)) : 0;
-          return m.n ? <rect key={m.ym} x={x(i) - bw / 2} y={VH - bh} width={bw} height={bh} rx={2} className={`apt-chart-bar${hover === i ? ' on' : ''}`} /> : null;
+          const eh = m.extra.length ? Math.max(3, (m.extra.length / maxN) * (VH - 16)) : 0;
+          return (
+            <g key={m.ym}>
+              {m.n > 0 && <rect x={x(i) - bw / 2} y={VH - bh} width={bw} height={bh} rx={2} className={`apt-chart-bar${hover === i ? ' on' : ''}`} />}
+              {eh > 0 && <rect x={x(i) - bw / 2} y={VH - bh - eh - (bh ? 2 : 0)} width={bw} height={eh} rx={2} className="apt-chart-bar-other" />}
+            </g>
+          );
         })}
         <text x={W - PAD.r} y={12} textAnchor="end" className="apt-chart-axis">최다 {maxN}건</text>
       </svg>
-      <p className="apt-chart-note">직거래와 시세(앞뒤 3개월 중간값)와 차이 큰 거래는 빼고 그렸어요 · 속 빈 점은 거래가 1건뿐인 달</p>
+      <p className="apt-chart-note">선은 중개거래의 그달 중간값 · 속 빈 점은 거래가 1건뿐인 달 · 회색 마름모(◆)는 직거래나 시세와 차이 큰 거래라 선에서 뺀 것(그래프 밖이면 ▼▲)</p>
     </figure>
   );
 }
