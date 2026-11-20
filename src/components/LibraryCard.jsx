@@ -187,6 +187,9 @@ function Availability({ pos, isbn, favCodes }) {
                     </div>
                     <div className="med-actions">
                       <a className="btn btn-sm" href={mapLink(l)} target="_blank" rel="noreferrer">길찾기</a>
+                      {l.reserveUrl && (
+                        <a className={`btn btn-sm${l.available ? '' : ' btn-primary'}`} href={l.reserveUrl} target="_blank" rel="noreferrer" title="도서관 홈페이지에서 로그인 후 예약·상호대차">예약하러 가기</a>
+                      )}
                     </div>
                   </li>
                 ))}

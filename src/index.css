@@ -295,6 +295,7 @@ button { font: inherit; color: inherit; cursor: pointer; }
 .section-title { font-size: 1rem; font-weight: 800; margin-top: 4px; }
 .med-closing { color: var(--bad); font-weight: 700; }
 .med-actions { display: flex; gap: 6px; flex-shrink: 0; }
+.lib-avail .med-actions { flex-direction: column; align-items: stretch; }
 .bed { font-weight: 700; font-size: 0.9rem; }
 .bed-ok { color: var(--good); }
 .bed-few { color: var(--bad); }

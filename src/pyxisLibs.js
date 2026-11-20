@@ -82,11 +82,13 @@ export async function pyxisLibraries(sys) {
   }));
 }
 
-// 이 책(ISBN)이 지점마다 있는지·지금 빌릴 수 있는지(10분 보관). { [code]: { has, available, state, copies } }
+// 이 책(ISBN)이 지점마다 있는지·지금 빌릴 수 있는지(10분 보관). { [code]: { has, available, state, copies, reserveUrl } }
 // copies: 책 한 권마다 위치 [{ room: '2층 종합자료실(일반도서)', shelf: '종합자료실 33번 서가', callNo, state, due, map }]
 //   (1/biblios/<id>/items, 지점 id 별로 묶여 옴. 실패하면 위치 없이 상태만)
 // 관내열람(빌릴 수 없고 도서관 안에서만 보는 책)은 빼고, 그런 책만 있는 지점은 목록에서도 뺀다.
 const inLibOnly = (s) => String(s || '').replace(/\s/g, '').includes('관내열람');
+// 도서관 홈페이지의 그 책 상세 화면(로그인하면 예약·상호대차를 누를 수 있음). 홈페이지는 해시 주소 #/search/detail/<biblioId>
+const reserveUrl = (sys, biblioId) => `${sys.site.replace(/\/$/, '')}/#/search/detail/${biblioId}`;
 export function pyxisAvailability(sys, isbn) {
   return cached(`pyx:isbn3:${sys.id}:${isbn}`, 10 * 60e3, async () => {
     const q = new URLSearchParams({ all: `k|a|${isbn}`, max: '50' });
@@ -102,7 +104,7 @@ export function pyxisAvailability(sys, isbn) {
         const ready = v.cStateCode === 'READY';
         const prev = out[code];
         // 한 지점에 여러 권이면 한 권이라도 빌릴 수 있으면 '대출 가능'
-        if (!prev || (ready && !prev.available)) out[code] = { has: true, available: ready, state: ready ? '대출 가능' : String(v.cState || '대출 불가').replace('대출중', '대출 중'), copies: prev?.copies || [] };
+        if (!prev || (ready && !prev.available)) out[code] = { has: true, available: ready, state: ready ? '대출 가능' : String(v.cState || '대출 불가').replace('대출중', '대출 중'), copies: prev?.copies || [], reserveUrl: prev?.reserveUrl || reserveUrl(sys, b.id) };
       }
     }
     await Promise.all(biblios.slice(0, 20).map(async (id) => {
